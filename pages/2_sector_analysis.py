@@ -353,10 +353,10 @@ hovertemplate="<b>%{text}</b><br>PE: %{x:.1f}<br>ROE: %{y:.1f}%<extra></extra>",
 ))
 if avg_pe is not None:
 fig_sc.add_vline(x=avg_pe, line_dash="dot", line_color="rgba(0,200,130,0.3)",
-annotation_text="Avg PE", annotation_font_color="rgba(0,200,130,0.5)
+annotation_text="Avg PE", annotation_font_color="rgba(0,200,130,0.5)")
 if avg_roe_pct is not None:
 fig_sc.add_hline(y=avg_roe_pct, line_dash="dot", line_color="rgba(0,200,130,0.3)",
-annotation_text="Avg ROE", annotation_font_color="rgba(0,200,130,0.5
+annotation_text="Avg ROE", annotation_font_color="rgba(0,200,130,0.5)")
 fig_sc.update_layout(
 paper_bgcolor="#080d1a", plot_bgcolor="#080d1a",
 font=dict(family="DM Mono", color="rgba(180,200,230,0.7)", size=11),
