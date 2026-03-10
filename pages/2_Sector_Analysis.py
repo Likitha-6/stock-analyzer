@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="Sector Analysis",
     page_icon="🏭",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # -- CSS ---------------------------------------------------------------------
@@ -133,6 +133,50 @@ div[data-testid="stButton"] > button:hover {
     background: rgba(0,200,130,0.1);
     border-color: rgba(0,200,130,0.6);
 }
+.filter-bar {
+    background: #0b1525;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 1.4rem 1.8rem;
+    margin-bottom: 1.8rem;
+}
+.filter-title {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #8aaac8;
+    margin-bottom: 0.7rem;
+}
+.spill {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.3rem;
+}
+.spill-pill {
+    display: inline-block;
+    background: #0d1e35;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.73rem;
+    font-weight: 500;
+    color: #c0d4e8;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.spill-pill:hover {
+    border-color: rgba(0,200,130,0.5);
+    color: #00c882;
+}
+.spill-pill.active {
+    background: rgba(0,200,130,0.15);
+    border-color: #00c882;
+    color: #00c882;
+    font-weight: 700;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -167,22 +211,62 @@ for col in ("ROE", "ProfitMargin"):
         mask = merged_df[col].notna() & (merged_df[col].abs() <= 2)
         merged_df.loc[mask, col] = merged_df.loc[mask, col] * 100
 
-# -- Sidebar filters ---------------------------------------------------------
-st.sidebar.markdown("### 🔍 Filters")
+# -- Inline filter bar -------------------------------------------------------
+sectors    = sorted(merged_df["Big Sectors"].dropna().unique())
+industries_all = sorted(merged_df["Industry"].dropna().unique())
 
-sectors = sorted(merged_df["Big Sectors"].dropna().unique())
-sec_sel = st.sidebar.selectbox("Sector", sectors)
+# Sector selection state
+if "sec_sel" not in st.session_state or st.session_state["sec_sel"] not in sectors:
+    st.session_state["sec_sel"] = sectors[0]
+if "ind_sel" not in st.session_state:
+    st.session_state["ind_sel"] = None
 
+st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
+
+# ── Row 1: Sector pills ──────────────────────────────────────────────────────
+st.markdown('<div class="filter-title">Sector</div>', unsafe_allow_html=True)
+sec_cols = st.columns(len(sectors))
+for i, sec in enumerate(sectors):
+    active = "active" if sec == st.session_state["sec_sel"] else ""
+    if sec_cols[i].button(sec, key="sec_" + sec,
+                          type="primary" if active else "secondary"):
+        st.session_state["sec_sel"] = sec
+        st.session_state["ind_sel"] = None
+        st.rerun()
+
+sec_sel = st.session_state["sec_sel"]
+
+# ── Row 2: Industry pills ────────────────────────────────────────────────────
 industries = sorted(merged_df[merged_df["Big Sectors"] == sec_sel]["Industry"].dropna().unique())
-ind_sel = st.sidebar.selectbox("Industry", industries)
+if st.session_state["ind_sel"] not in industries:
+    st.session_state["ind_sel"] = industries[0]
 
-rank_by  = st.sidebar.selectbox("Rank companies by", ["Market Cap", "EPS", "ROE", "PE Ratio", "Profit Margin"])
-show_all = st.sidebar.checkbox("Show all companies", value=False)
+st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
+st.markdown('<div class="filter-title">Industry</div>', unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("**🎯 Top Performer Criteria**")
-interp_threshold = st.sidebar.selectbox("Min green signals", ["5 / 5", "4 / 5", "3 / 5", "2 / 5"], index=1)
+# Split industries into rows of 5
+IND_PER_ROW = 6
+for row_start in range(0, len(industries), IND_PER_ROW):
+    row_inds = industries[row_start:row_start + IND_PER_ROW]
+    ind_cols = st.columns(len(row_inds))
+    for j, ind in enumerate(row_inds):
+        active = ind == st.session_state["ind_sel"]
+        if ind_cols[j].button(ind, key="ind_" + ind,
+                               type="primary" if active else "secondary"):
+            st.session_state["ind_sel"] = ind
+            st.rerun()
+
+ind_sel = st.session_state["ind_sel"]
+
+# ── Row 3: Options ───────────────────────────────────────────────────────────
+st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
+opt1, opt2, opt3, opt4 = st.columns([2, 2, 2, 2])
+rank_by          = opt1.selectbox("Rank by", ["Market Cap", "EPS", "ROE", "PE Ratio", "Profit Margin"], label_visibility="visible")
+interp_threshold = opt2.selectbox("Min green signals", ["5 / 5", "4 / 5", "3 / 5", "2 / 5"], index=1, label_visibility="visible")
+show_all         = opt3.checkbox("Show all companies", value=False)
 interp_cutoff    = {"5 / 5": 5, "4 / 5": 4, "3 / 5": 3, "2 / 5": 2}[interp_threshold]
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 # -- Sector summary strip ----------------------------------------------------
 sector_df = merged_df[merged_df["Big Sectors"] == sec_sel]
@@ -471,17 +555,67 @@ if len(scatter_df) >= 3:
     )
     st.plotly_chart(fig_sc, use_container_width=True, config={"displayModeBar": False})
 
-    # Colour legend below chart
+    # -- Quadrant breakdown: company names per category ------------------
+    # Build per-quadrant lists
+    q_groups = {
+        "Cheap + Quality":      {"color": "#00c882", "bg": "rgba(0,200,130,0.08)",  "border": "#00c882", "companies": []},
+        "Expensive + Quality":  {"color": "#6ec6ff", "bg": "rgba(100,180,255,0.08)","border": "#6ec6ff", "companies": []},
+        "Cheap + Low ROE":      {"color": "#f5a623", "bg": "rgba(245,166,35,0.08)", "border": "#f5a623", "companies": []},
+        "Expensive + Low ROE":  {"color": "#ff4d6a", "bg": "rgba(255,77,106,0.08)", "border": "#ff4d6a", "companies": []},
+    }
+    for _, r in scatter_df.iterrows():
+        pe  = r["PE Ratio"]
+        roe = r["ROE"]
+        sym  = r["Symbol"]
+        name = r["Company Name"]
+        if avg_pe is not None and avg_roe_pct is not None:
+            low_pe   = pe  <= avg_pe
+            high_roe = roe >= avg_roe_pct
+            if low_pe and high_roe:
+                q_groups["Cheap + Quality"]["companies"].append((sym, name, pe, roe))
+            elif not low_pe and high_roe:
+                q_groups["Expensive + Quality"]["companies"].append((sym, name, pe, roe))
+            elif low_pe and not high_roe:
+                q_groups["Cheap + Low ROE"]["companies"].append((sym, name, pe, roe))
+            else:
+                q_groups["Expensive + Low ROE"]["companies"].append((sym, name, pe, roe))
+
     st.markdown(
-        '<div style="display:flex;gap:0.6rem;margin-top:0.4rem;margin-bottom:1.2rem;flex-wrap:wrap;">'
-        '<span style="background:#00c882;color:#000;font-size:0.7rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:5px;">Cheap + Quality  (Buy zone)</span>'
-        '<span style="background:#6ec6ff;color:#000;font-size:0.7rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:5px;">Expensive + Quality</span>'
-        '<span style="background:#f5a623;color:#000;font-size:0.7rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:5px;">Cheap + Low ROE</span>'
-        '<span style="background:#ff4d6a;color:#fff;font-size:0.7rem;font-weight:700;padding:0.25rem 0.7rem;border-radius:5px;">Expensive + Low ROE  (Avoid)</span>'
-        '<span style="font-size:0.7rem;color:#8aaac8;align-self:center;padding-left:0.3rem;">Hover dots for details</span>'
-        '</div>',
+        "<div style='margin-top:1rem;margin-bottom:0.6rem;font-size:0.68rem;font-weight:700;"
+        "letter-spacing:0.14em;text-transform:uppercase;color:#8aaac8;"
+        "border-left:3px solid #00c882;padding-left:0.6rem;'>"
+        "Company Breakdown by Quadrant</div>",
         unsafe_allow_html=True
     )
+    q_col1, q_col2, q_col3, q_col4 = st.columns(4)
+    for qcol, (qname, qdata) in zip([q_col1, q_col2, q_col3, q_col4], q_groups.items()):
+        companies = qdata["companies"]
+        clr    = qdata["color"]
+        bg     = qdata["bg"]
+        border = qdata["border"]
+        # Header badge
+        qcol.markdown(
+            '<div style="background:' + bg + ';border:1px solid ' + border +
+            ';border-radius:8px;padding:0.6rem 0.9rem;margin-bottom:0.6rem;">'
+            '<div style="font-size:0.68rem;font-weight:700;color:' + clr + ';letter-spacing:0.06em;">' + qname + '</div>'
+            '<div style="font-size:0.72rem;color:#8aaac8;margin-top:2px;">' + str(len(companies)) + ' companies</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        if companies:
+            for sym, name, pe, roe in companies:
+                disp_name = name if name and name != sym else sym
+                qcol.markdown(
+                    '<div style="padding:0.45rem 0.6rem;border-left:2px solid ' + clr +
+                    ';margin-bottom:0.35rem;background:#0b1525;border-radius:0 6px 6px 0;">'
+                    '<div style="font-size:0.75rem;font-weight:600;color:#e8f0ff;">' + sym + '</div>'
+                    '<div style="font-size:0.68rem;color:#8aaac8;margin-top:1px;">' + disp_name + '</div>'
+                    '<div style="font-size:0.65rem;color:' + clr + ';margin-top:2px;">PE ' + str(round(pe,1)) + '  ROE ' + str(round(roe,1)) + '%</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            qcol.markdown('<div style="font-size:0.72rem;color:#4a6080;padding:0.4rem;">None in this quadrant</div>', unsafe_allow_html=True)
 
 # -- Company table -----------------------------------------------------------
 st.markdown('<div class="section-label">// company rankings</div>', unsafe_allow_html=True)
