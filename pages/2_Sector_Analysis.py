@@ -216,25 +216,25 @@ for col, label, value, sub in [
 (sc3, “Companies”,        str(co_count),                    “listed”),
 (sc4, “Total Market Cap”, human_market_cap(total_cap) if total_cap > 0 else “N/A”, “combined”),
 ]:
-col.markdown(f”””
+col.markdown(f’’’
 <div class="stat-card">
 <div class="stat-label">{label}</div>
 <div class="stat-value" style="font-size:1.3rem;">{value}</div>
 <div class="stat-sub">{sub}</div>
 </div>
-“””, unsafe_allow_html=True)
+‘’’, unsafe_allow_html=True)
 
 # ── Industry scope ───────────────────────────────────────────────────────────
 
 scoped_df = merged_df[merged_df[“Industry”] == ind_sel].copy()
 
 st.markdown(’<div class="section-label">// industry averages</div>’, unsafe_allow_html=True)
-st.markdown(f”””
+st.markdown(f’’’
 <div style="margin-bottom:0.8rem;">
 <span class="sector-pill">📍 {ind_sel}</span>
 <span class="sector-pill">🏢 {len(scoped_df)} companies</span>
 </div>
-“””, unsafe_allow_html=True)
+‘’’, unsafe_allow_html=True)
 
 # ── Industry averages — from DB (fast) ──────────────────────────────────────
 
@@ -277,12 +277,12 @@ for col, label, value in [
 (a4, “Avg Profit Margin”,“N/A” if avg_pm_pct  is None else f”{avg_pm_pct:.1f}%”),
 (a5, “Avg D/E”,          _safe(avg_de)),
 ]:
-col.markdown(f”””
+col.markdown(f’’’
 <div class="stat-card">
 <div class="stat-label">{label}</div>
 <div class="stat-value" style="font-size:1.4rem;">{value}</div>
 </div>
-“””, unsafe_allow_html=True)
+‘’’, unsafe_allow_html=True)
 
 # ── Rank & score companies ───────────────────────────────────────────────────
 
@@ -470,7 +470,7 @@ for i, q in enumerate(qualified_sorted):
     name  = q["Company"] or sym
     score = q["✅ Count"]
     mcap  = q["MCap"]
-    col.markdown(f"""
+    col.markdown(f'''
         <div class="qualify-badge">
             <div>
                 <div class="qualify-name">{name}</div>
@@ -478,7 +478,7 @@ for i, q in enumerate(qualified_sorted):
             </div>
             <div class="qualify-score">{score}/5</div>
         </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
     if col.button(f"View {sym}", key=f"goto_{sym}_{i}"):
         st.session_state["compare_symbol"] = sym
         st.session_state["already_loaded_from_sector"] = False
