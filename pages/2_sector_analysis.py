@@ -149,16 +149,16 @@ COLS = {
 }
 # Coerce numerics
 for col in COLS.values():
-if col in merged_df.columns:
-merged_df[col] = pd.to_numeric(merged_df[col], errors="coerce")
+  if col in merged_df.columns:
+    merged_df[col] = pd.to_numeric(merged_df[col], errors="coerce")
 # Normalise D/E (stored as e.g. 120 meaning 1.20)
-if "DebtToEquity" in merged_df.columns:
-merged_df["DebtToEquity"] = merged_df["DebtToEquity"] / 100
+  if "DebtToEquity" in merged_df.columns:
+    merged_df["DebtToEquity"] = merged_df["DebtToEquity"] / 100
 # Normalise ROE and ProfitMargin to % (stored as 0.18 → 18)
 for col in ("ROE", "ProfitMargin"):
-if col in merged_df.columns:
-mask = merged_df[col].notna() & (merged_df[col].abs() <= 2)
-merged_df.loc[mask, col] = merged_df.loc[mask, col] * 100
+  if col in merged_df.columns:
+  mask = merged_df[col].notna() & (merged_df[col].abs() <= 2)
+  merged_df.loc[mask, col] = merged_df.loc[mask, col] * 100
 # ── Sidebar filters ──────────────────────────────────────────────────────────
 st.sidebar.markdown("### Filters")
 sectors = sorted(merged_df["Big Sectors"].dropna().unique())
