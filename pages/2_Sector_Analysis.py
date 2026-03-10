@@ -9,15 +9,15 @@ from common.data import load_name_lookup
 from common.finance import get_industry_averages, human_market_cap
 
 st.set_page_config(
-page_title=“Sector Analysis”,
-page_icon=“🏭”,
-layout=“wide”,
-initial_sidebar_state=“expanded”
+page_title="Sector Analysis",
+page_icon="🏭",
+layout="wide",
+initial_sidebar_state="expanded"
 )
 
 # ── CSS ─────────────────────────────────────────────────────────────────────
 
-st.markdown(”””
+st.markdown("""
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
@@ -138,7 +138,7 @@ div[data-testid="stButton"] > button:hover {
 }
 </style>
 
-“””, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ── Header ───────────────────────────────────────────────────────────────────
 
