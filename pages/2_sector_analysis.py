@@ -182,7 +182,7 @@ for col, label, value, sub in [
 (sc1, "Sector", sec_sel, "selected"),
 (sc2, "Industries", str(ind_count), "in this sector"),
 (sc3, "Companies", str(co_count), "listed"),
-(sc4, "Total Market Cap", human_market_cap(total_cap) if total_cap > 0 else "N/A", "combi
+(sc4, "Total Market Cap", human_market_cap(total_cap) if total_cap > 0 else "N/A", "combined"),
 ]:
 col.markdown(f'''
 <div class="stat-card">
