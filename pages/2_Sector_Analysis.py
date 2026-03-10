@@ -470,6 +470,10 @@ if len(scatter_df) >= 3:
 
     dot_colors = [_dot_color(r["PE Ratio"], r["ROE"]) for _, r in scatter_df.iterrows()]
 
+    # Shared avg thresholds for both dots and quadrant breakdown
+    _q_avg_pe  = avg_pe      if avg_pe      is not None else float(scatter_df["PE Ratio"].median())
+    _q_avg_roe = avg_roe_pct if avg_roe_pct is not None else float(scatter_df["ROE"].median())
+
     fig_sc = go.Figure()
 
     # Quadrant shading (only when averages are available)
@@ -563,22 +567,21 @@ if len(scatter_df) >= 3:
         "Cheap + Low ROE":      {"color": "#f5a623", "bg": "rgba(245,166,35,0.08)", "border": "#f5a623", "companies": []},
         "Expensive + Low ROE":  {"color": "#ff4d6a", "bg": "rgba(255,77,106,0.08)", "border": "#ff4d6a", "companies": []},
     }
+    # Use avg from DB, fallback to median of scatter_df itself
     for _, r in scatter_df.iterrows():
-        pe  = r["PE Ratio"]
-        roe = r["ROE"]
+        pe   = r["PE Ratio"]
+        roe  = r["ROE"]
         sym  = r["Symbol"]
         name = r["Company Name"]
-        if avg_pe is not None and avg_roe_pct is not None:
-            low_pe   = pe  <= avg_pe
-            high_roe = roe >= avg_roe_pct
-            if low_pe and high_roe:
-                q_groups["Cheap + Quality"]["companies"].append((sym, name, pe, roe))
-            elif not low_pe and high_roe:
-                q_groups["Expensive + Quality"]["companies"].append((sym, name, pe, roe))
-            elif low_pe and not high_roe:
-                q_groups["Cheap + Low ROE"]["companies"].append((sym, name, pe, roe))
-            else:
-                q_groups["Expensive + Low ROE"]["companies"].append((sym, name, pe, roe))
+        # skip if either value is null
+        if pd.isna(pe) or pd.isna(roe):
+            continue
+        low_pe   = float(pe)  <= _q_avg_pe
+        high_roe = float(roe) >= _q_avg_roe
+        if   low_pe and     high_roe: q_groups["Cheap + Quality"]["companies"].append((sym, name, round(float(pe),1), round(float(roe),1)))
+        elif not low_pe and high_roe: q_groups["Expensive + Quality"]["companies"].append((sym, name, round(float(pe),1), round(float(roe),1)))
+        elif low_pe and not high_roe: q_groups["Cheap + Low ROE"]["companies"].append((sym, name, round(float(pe),1), round(float(roe),1)))
+        else:                         q_groups["Expensive + Low ROE"]["companies"].append((sym, name, round(float(pe),1), round(float(roe),1)))
 
     st.markdown(
         "<div style='margin-top:1rem;margin-bottom:0.6rem;font-size:0.68rem;font-weight:700;"
