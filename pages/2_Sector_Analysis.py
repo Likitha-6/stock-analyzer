@@ -142,8 +142,8 @@ div[data-testid="stButton"] > button:hover {
 
 # ── Header ───────────────────────────────────────────────────────────────────
 
-st.markdown(’<div class="page-title">🏭 Sector & Industry Analysis</div>’, unsafe_allow_html=True)
-st.markdown(’<div class="page-sub">// Browse sectors · rank companies · spot top performers</div>’, unsafe_allow_html=True)
+st.markdown('<div class="page-title">🏭 Sector & Industry Analysis</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-sub">// Browse sectors · rank companies · spot top performers</div>', unsafe_allow_html=True)
 
 # ── Load data ────────────────────────────────────────────────────────────────
 
