@@ -263,14 +263,38 @@ st.markdown("<div style='margin-top:2rem;'></div>", unsafe_allow_html=True)
 st.markdown('<div class="section-header">// explore the app</div>', unsafe_allow_html=True)
 
 pages = [
-    ("📊", "Fundamentals",       "Deep dive into any NSE stock — PE, EPS, ROE, margins, FCF, peer comparison, and historical price charts."),
-    ("🏭", "Sector Analysis",    "Browse all sectors and industries. Rank companies by market cap, EPS, or ROE and flag top performers."),
-    ("📉", "Technical Analysis", "Candlestick charts with EMA/SMA overlays, RSI, pivot levels, and analyst recommendation history."),
-    ("🧭", "Index Analysis",     "Monitor NIFTY 50, SENSEX, and sectoral indices. EMA crossovers, RSI signals, and FinBERT news sentiment."),
+    ("📊", "Fundamentals",       "Deep dive into any NSE stock — PE, EPS, ROE, margins, FCF, peer comparison, and historical price charts.", "pages/1_Fundamentals.py"),
+    ("🏭", "Sector Analysis",    "Browse all sectors and industries. Rank companies by market cap, EPS, or ROE and flag top performers.",      "pages/2_Sector_Analysis.py"),
+    ("📉", "Technical Analysis", "Candlestick charts with EMA/SMA overlays, RSI, pivot levels, and analyst recommendation history.",          "pages/3_Technical_Analysis.py"),
+    ("🧭", "Index Analysis",     "Monitor NIFTY 50, SENSEX, and sectoral indices. EMA crossovers, RSI signals, and FinBERT news sentiment.",  "pages/4_Index_Analysis.py"),
 ]
 
+# Style the open buttons to be subtle / minimal
+st.markdown("""
+<style>
+div[data-testid="stButton"] > button {
+    background: transparent;
+    border: 1px solid rgba(0,200,130,0.25);
+    border-radius: 8px;
+    color: #00c882;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 1rem;
+    margin-top: 0.6rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+div[data-testid="stButton"] > button:hover {
+    background: rgba(0,200,130,0.1);
+    border-color: rgba(0,200,130,0.6);
+    color: #00c882;
+}
+</style>
+""", unsafe_allow_html=True)
+
 c1, c2 = st.columns(2)
-for i, (icon, title, desc) in enumerate(pages):
+for i, (icon, title, desc, page_path) in enumerate(pages):
     col = c1 if i % 2 == 0 else c2
     col.markdown(f"""
         <div class="nav-card">
@@ -280,6 +304,8 @@ for i, (icon, title, desc) in enumerate(pages):
             <span class="nav-card-arrow">→</span>
         </div>
     """, unsafe_allow_html=True)
+    if col.button(f"Open {title} →", key=f"nav_{i}"):
+        st.switch_page(page_path)
 
 
 # ── Footer ──────────────────────────────────────────────────────────────────
