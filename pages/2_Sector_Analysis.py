@@ -466,14 +466,15 @@ qualified_sorted = sorted(qualified, key=lambda x: x[“✅ Count”], reverse=T
 q_cols = st.columns(3)
 for i, q in enumerate(qualified_sorted):
     col = q_cols[i % 3]
-    sym = q["_sym"]
-    name = q["Company"] or sym
+    sym   = q["_sym"]
+    name  = q["Company"] or sym
     score = q["✅ Count"]
+    mcap  = q["MCap"]
     col.markdown(f"""
         <div class="qualify-badge">
             <div>
                 <div class="qualify-name">{name}</div>
-                <div class="qualify-sym">{sym} · {q['MCap']}</div>
+                <div class="qualify-sym">{sym} · {mcap}</div>
             </div>
             <div class="qualify-score">{score}/5</div>
         </div>
