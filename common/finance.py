@@ -129,17 +129,12 @@ def get_stock_description(symbol: str) -> str:
         return "Description could not be fetched at this time."
 
 
-def market_cap_label(mc: Optional[float]) -> str:
-    if mc is None:
-        return "N/A"
-    if mc >= 2e12:
-        return "Mega Cap"
-    if mc >= 5e11:
-        return "Large Cap"
-    if mc >= 1e11:
-        return "Mid Cap"
-    if mc >= 1e10:
-        return "Small Cap"
+def market_cap_label(mc):
+    if mc is None: return "N/A"
+    if mc >= 2_000_000_000_000: return "Mega Cap"
+    if mc >= 200_000_000_000:   return "Large Cap"   # ₹20,000 Cr+
+    if mc >= 50_000_000_000:    return "Mid Cap"     # ₹5,000 Cr+
+    if mc >= 5_000_000_000:     return "Small Cap"   # ₹500 Cr+
     return "Micro Cap"
 
 
