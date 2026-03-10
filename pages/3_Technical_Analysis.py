@@ -77,15 +77,23 @@ with tab1:
         st.session_state.candle_days = 1
 
     # Indicator selection
-    all_indicators = st.multiselect(
-        "Select Indicators",
-        ["EMA"],
-        default=[]
-    )
+    all_indicators = st.multiselect("Select Indicators", ["SMA", "EMA"], default=[])
 
     sma_lengths, ema_lengths = [], []
-    # (You kept SMA off by default, so no SMA input block here.)
+    
+    if "SMA" in all_indicators:
+        sma_input = st.text_input("SMA lengths (comma-separated, e.g. 20,50)", value="20,50", key="sma_input")
+        try:
+            sma_lengths = [int(x.strip()) for x in sma_input.split(",") if x.strip().isdigit()]
+        except Exception:
+            sma_lengths = []
 
+if "EMA" in all_indicators:
+    ema_input = st.text_input("EMA lengths (comma-separated, e.g. 20,50)", value="20,50", key="ema_input")
+    try:
+        ema_lengths = [int(x.strip()) for x in ema_input.split(",") if x.strip().isdigit()]
+    except Exception:
+        ema_lengths = []
     # Choose period so the chart loads enough candles
     period = (
         "60d" if interval == "1d" else
@@ -168,6 +176,17 @@ with tab1:
                                     font=dict(color="#e74c3c"))
                 )
                 # ────────────────── indicator overlays (EMA) ──────────────────
+                if sma_lengths:
+                    df = apply_sma(df, sma_lengths)
+                    for sma_len in sma_lengths:
+                        col = f"SMA_{sma_len}"
+                        if col in df.columns and df[col].notna().sum() > 5:
+                            fig.add_trace(go.Scatter(
+                                x=df["x_label"], y=df[col],
+                                mode="lines",
+                                line=dict(width=1.5, dash="dash"),
+                                name=f"SMA ({sma_len})"
+                            ))
                 if ema_lengths:
                     df = apply_ema(df, ema_lengths)
                     for ema_len in ema_lengths:
@@ -408,11 +427,11 @@ with tab3:
                     xaxis_title="Month",
                     yaxis_title="Number of Ratings",
                     legend_title="Rating",
-                    plot_bgcolor="#0E1117",   # Dark background
-                    paper_bgcolor="#0E1117",
-                    font=dict(color="white"),  # White font
-                    xaxis=dict(color="white"),
-                    yaxis=dict(color="white"),
+                    plot_bgcolor=bg_color,
+                    paper_bgcolor=bg_color,
+                    font=dict(color=font_color),
+                    xaxis=dict(color=font_color),
+                    yaxis=dict(color=font_color),
                     height=400
                 )
 
