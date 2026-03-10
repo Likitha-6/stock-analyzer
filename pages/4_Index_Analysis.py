@@ -27,7 +27,7 @@ index_symbol = index_options[selected_index]
 # ─────────────────────────────────────
 # Load Data and Compute Indicators
 # ─────────────────────────────────────
-df = yf.Ticker(index_symbol).history(period="60d", interval="1d").reset_index()
+df = yf.Ticker(index_symbol).history(period="2y", interval="1d").reset_index()
 price = df["Close"].iloc[-1]
 # Ensure we have enough data
 df["Date"] = pd.to_datetime(df["Date"])
@@ -177,7 +177,7 @@ else:
 # ─────────────────────────────────────
 # Final Recommendation
 # ─────────────────────────────────────
-#st.subheader(" Final Recommendation")
+
 
 buy_signal = latest_ema9 > latest_ema15 and latest_rsi < 30 and latest_ema15 < ema15_5days_ago
 wait_signal = latest_ema9 > latest_ema15 and 30 <= latest_rsi <= 60
