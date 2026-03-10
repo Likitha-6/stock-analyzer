@@ -2,17 +2,10 @@ import pandas as pd
 from pivot_utils import get_previous_period_ohlc, calculate_classic_pivots
 
 def apply_sma(df: pd.DataFrame, lengths: list) -> pd.DataFrame:
+    """Compute SMA columns on the DataFrame. Rendering is handled by the caller."""
     for sma_len in lengths:
         col_name = f"SMA_{sma_len}"
-        if col_name in df.columns and df[col_name].notna().sum() > 10:  # only if sufficient data
-            fig.add_trace(go.Scatter(
-                x=df["x_label"],
-                y=df[col_name],
-                mode="lines",
-                line=dict(width=1.5),
-                name=f"SMA ({sma_len})"
-            ))
-
+        df[col_name] = df["Close"].rolling(window=sma_len).mean()
     return df
 
 def apply_ema(df: pd.DataFrame, lengths: list) -> pd.DataFrame:
