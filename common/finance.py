@@ -78,46 +78,42 @@ def _fetch_core_metrics(symbol: str) -> dict:
 
 
 @st.cache_data(ttl=60 * 60 * 6, show_spinner=True)
-def get_industry_averages(
-    industry: str,
-    master_df: pd.DataFrame,
-    max_peers: Optional[int] = None,
-) -> dict:
-    """
-    Compute mean value of each metric across all tickers in *industry*.
-    """
+@st.cache_data(ttl=60 * 60 * 6, show_spinner=True)
+def get_industry_averages(industry, master_df, max_peers=None):
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     peer_syms = (
         master_df.loc[master_df["Industry"] == industry, "Symbol"]
-        .head(max_peers)  # head(None) is safe
-        .tolist()
+        .head(max_peers).tolist()
     )
+    metric_keys = ["PE Ratio","EPS","Profit Margin","ROE","Debt to Equity","Dividend Yield","Free Cash Flow"]
+    buckets = {m: [] for m in metric_keys}
+    rate_limited = False
 
-    buckets = {m: [] for m in [
-        "PE Ratio",
-        "EPS",
-        "Profit Margin",
-        "ROE",
-        "Debt to Equity",
-        "Dividend Yield",
-        "Free Cash Flow",
-    ]}
-
-    for sym in peer_syms:
+    def fetch(sym):
         try:
-            data = _fetch_core_metrics(sym)  # cached – usually instant
+            return _fetch_core_metrics(sym)
         except RuntimeError:
-            st.warning("⚠️ Yahoo Finance rate-limit reached – partial peer data.")
-            break
-        for m, v in data.items():
-            if m.startswith("_"):
-                continue
-            if v is not None and isinstance(v, (int, float)) and np.isfinite(v):
-                buckets[m].append(float(v))
+            return None
+        except Exception:
+            return {}
 
-    return {
-        m: (None if not vals else round(float(np.median(vals)), 2))
-        for m, vals in buckets.items()
-    }
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(fetch, sym): sym for sym in peer_syms}
+        for future in as_completed(futures):
+            result = future.result()
+            if result is None:
+                rate_limited = True
+                continue
+            for m, v in result.items():
+                if m.startswith("_"): continue
+                if v is not None and isinstance(v, (int, float)) and np.isfinite(v):
+                    buckets[m].append(float(v))
+
+    if rate_limited:
+        st.warning("⚠️ Yahoo Finance rate-limit reached – partial peer data.")
+
+    return {m: (None if not vals else round(float(np.median(vals)), 2)) for m, vals in buckets.items()}
 
 # ────────────────────────────────────────────────────────────────────
 # 3.  Utility helpers used by UI code
