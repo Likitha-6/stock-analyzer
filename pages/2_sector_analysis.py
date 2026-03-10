@@ -169,7 +169,7 @@ rank_by = st.sidebar.selectbox("Rank companies by", ["Market Cap", "EPS", "ROE",
 show_all = st.sidebar.checkbox("Show all companies", value=False)
 st.sidebar.markdown("---")
 st.sidebar.markdown("** Top Performer Criteria**")
-interp_threshold = st.sidebar.selectbox("Min green signals", ["5 / 5", "4 / 5", "3 / 5", "2 /
+interp_threshold = st.sidebar.selectbox("Min green signals", ["5 / 5", "4 / 5", "3 / 5", "2 /5"], index=1)
 interp_cutoff = {"5 / 5": 5, "4 / 5": 4, "3 / 5": 3, "2 / 5": 2}[interp_threshold]
 # ── Sector summary strip ─────────────────────────────────────────────────────
 sector_df = merged_df[merged_df["Big Sectors"] == sec_sel]
