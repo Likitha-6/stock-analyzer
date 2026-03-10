@@ -689,15 +689,15 @@ stock_df, nifty_df, ratings_df = pd.DataFrame(), pd.DataFrame(), None
             vol_ratio  = latest_vol / avg_vol if avg_vol else 1
 
             def info_card(label, value, sub=None, color="#60a5fa"):
-                st.markdown(
+                sub_html = f"<div style='color:#6b7280;font-size:0.78rem'>{sub}</div>" if sub else ""
+                html = (
                     f"<div style='background:rgba(30,35,64,0.6);border:1px solid #2e3150;"
                     f"border-radius:10px;padding:12px 16px;margin-bottom:10px;'>"
                     f"<div style='color:#8b93b8;font-size:0.75rem'>{label}</div>"
                     f"<div style='color:{color};font-size:1.2rem;font-weight:700'>{value}</div>"
-                    + (f"<div style='color:#6b7280;font-size:0.78rem'>{sub}</div>" if sub else "")
-                    + "</div>",
-                    unsafe_allow_html=True
+                    f"{sub_html}</div>"
                 )
+                st.markdown(html, unsafe_allow_html=True)
 
             info_card("Today's Volume", f"{latest_vol:,}",
                       f"21-Day Avg: {avg_vol:,} · Ratio: {vol_ratio:.2f}x",
