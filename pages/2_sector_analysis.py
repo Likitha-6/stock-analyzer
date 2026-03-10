@@ -132,7 +132,7 @@ border-color: rgba(0,200,130,0.6);
 """, unsafe_allow_html=True)
 # ── Header ───────────────────────────────────────────────────────────────────
 st.markdown('<div class="page-title"> Sector & Industry Analysis</div>', unsafe_allow_html=
-st.markdown('<div class="page-sub">// Browse sectors · rank companies · spot top performers</
+st.markdown('<div class="page-sub">// Browse sectors · rank companies · spot top performers</div>', unsafe_allow_html=True)
 # ── Load data ────────────────────────────────────────────────────────────────
 master_df = load_master()
 name_df = load_name_lookup()
