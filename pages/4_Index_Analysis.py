@@ -274,6 +274,23 @@ fig.update_xaxes(
     rangebreaks=[dict(bounds=["sat", "sun"])],
     showgrid=False, color="#8aaac8",
     rangeslider_visible=False,
+    rangeselector=dict(
+        buttons=[
+            dict(count=1,  label="1M",  step="month", stepmode="backward"),
+            dict(count=3,  label="3M",  step="month", stepmode="backward"),
+            dict(count=6,  label="6M",  step="month", stepmode="backward"),
+            dict(count=1,  label="1Y",  step="year",  stepmode="backward"),
+            dict(step="all", label="All"),
+        ],
+        bgcolor="#0d1628",
+        activecolor="#00c882",
+        bordercolor="rgba(255,255,255,0.1)",
+        borderwidth=1,
+        font=dict(color="#c0d4e8", size=11, family="Inter"),
+        x=0, y=1.02,
+        xanchor="left", yanchor="bottom",
+    ),
+    row=1, col=1,
 )
 fig.update_yaxes(
     showgrid=True, gridcolor="rgba(255,255,255,0.05)",
