@@ -491,8 +491,8 @@ with tab3:
                     height=320,
                 )
                 st.plotly_chart(fig_r, use_container_width=True, config={"displayModeBar": False})
-            except Exception:
-                st.caption("Analyst recommendations not available for this stock.")
+            except Exception as _rec_err:
+                st.caption("Analyst recommendations not available for this stock. (" + str(_rec_err) + ")")
 
     except Exception as e:
         st.error("Error loading market view: " + str(e))
