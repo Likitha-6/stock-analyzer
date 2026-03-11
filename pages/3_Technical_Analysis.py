@@ -111,7 +111,6 @@ else:
         "search",
         placeholder="🔍  Search by symbol or company name...",
         label_visibility="collapsed",
-        placeholder="e.g. RELIANCE or Tata Consultancy..."
     ).strip()
     if query and query != "🔍  Search by symbol or company name":
         mask = (
