@@ -295,6 +295,8 @@ fig.update_xaxes(
 fig.update_yaxes(
     showgrid=True, gridcolor="rgba(255,255,255,0.05)",
     color="#8aaac8",
+    autorange=True,
+    fixedrange=False,
 )
 fig.update_layout(
     paper_bgcolor="#080d1a",
