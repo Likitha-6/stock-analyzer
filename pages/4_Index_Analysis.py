@@ -3,6 +3,7 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from scipy.signal import argrelextrema
 from indicators import compute_rsi
 
@@ -198,101 +199,122 @@ for col, label, val, sub, cls in [
         unsafe_allow_html=True
     )
 
-# ── Support & Resistance ──────────────────────────────────────────────────────
-def get_sr(df, price):
-    d = df.copy()
-    mins = d["Close"].iloc[argrelextrema(d["Close"].values, np.less_equal,    order=5)[0]]
-    maxs = d["Close"].iloc[argrelextrema(d["Close"].values, np.greater_equal, order=5)[0]]
-    sup = mins[mins < price].max() if not mins.empty else None
-    res = maxs[maxs > price].min() if not maxs.empty else None
-    return sup, res
+# ── Combined interactive chart: candlestick + RSI subplot ────────────────────
+from plotly.subplots import make_subplots
 
-support, resistance = get_sr(df, price)
+st.markdown('<div class="section-label">// candlestick · EMA 9 · EMA 15 · SMA 50 · RSI</div>', unsafe_allow_html=True)
 
-# ── Candlestick chart ─────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">// candlestick · EMA 9 · EMA 15 · SMA 50</div>', unsafe_allow_html=True)
+plot_df = df.copy()
 
-period_sel = st.selectbox(
-    "chart period", ["3mo", "6mo", "1y", "2y"],
-    index=2, label_visibility="collapsed", key="idx_period"
+fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.04,
+    row_heights=[0.72, 0.28],
 )
-period_days = {"3mo": 63, "6mo": 126, "1y": 252, "2y": len(df)}
-plot_df = df.tail(period_days[period_sel]).copy()
 
-fig = go.Figure()
+# ── Row 1: Candlestick + EMAs ─────────────────────────────────────────────────
 fig.add_trace(go.Candlestick(
     x=plot_df["Date"],
     open=plot_df["Open"], high=plot_df["High"],
     low=plot_df["Low"],   close=plot_df["Close"],
     increasing_line_color="#00c882",
     decreasing_line_color="#ff4d6a",
+    increasing_fillcolor="#00c882",
+    decreasing_fillcolor="#ff4d6a",
     name="Price",
-))
+    hovertext=plot_df["Date"].dt.strftime("%d %b %Y"),
+), row=1, col=1)
+
 fig.add_trace(go.Scatter(
     x=plot_df["Date"], y=plot_df["EMA_9"],
     mode="lines", name="EMA 9",
-    line=dict(color="#f5a623", width=1.5)
-))
+    line=dict(color="#f5a623", width=1.5),
+    hovertemplate="EMA 9: %{y:,.2f}<extra></extra>",
+), row=1, col=1)
+
 fig.add_trace(go.Scatter(
     x=plot_df["Date"], y=plot_df["EMA_15"],
     mode="lines", name="EMA 15",
-    line=dict(color="#6ec6ff", width=1.5)
-))
+    line=dict(color="#6ec6ff", width=1.5),
+    hovertemplate="EMA 15: %{y:,.2f}<extra></extra>",
+), row=1, col=1)
+
 if latest_sma50:
     fig.add_trace(go.Scatter(
         x=plot_df["Date"], y=plot_df["SMA_50"],
         mode="lines", name="SMA 50",
-        line=dict(color="#c084fc", width=1.2, dash="dot")
-    ))
+        line=dict(color="#c084fc", width=1.2, dash="dot"),
+        hovertemplate="SMA 50: %{y:,.2f}<extra></extra>",
+    ), row=1, col=1)
 
-if support:
-    fig.add_hline(y=float(support), line_color="#00c882", line_dash="dot", line_width=1,
-                  annotation_text="Support " + str(round(float(support), 2)),
-                  annotation_font=dict(color="#00c882", size=10),
-                  annotation_position="bottom right")
-if resistance:
-    fig.add_hline(y=float(resistance), line_color="#ff4d6a", line_dash="dot", line_width=1,
-                  annotation_text="Resistance " + str(round(float(resistance), 2)),
-                  annotation_font=dict(color="#ff4d6a", size=10),
-                  annotation_position="top right")
-
-fig.update_xaxes(rangebreaks=[dict(bounds=["sat", "sun"])])
-fig.update_layout(
-    paper_bgcolor="#080d1a", plot_bgcolor="#080d1a",
-    font=dict(family="Inter", color="#c0d4e8", size=11),
-    xaxis=dict(showgrid=False, color="#8aaac8", rangeslider_visible=False),
-    yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.04)", color="#8aaac8"),
-    legend=dict(bgcolor="rgba(8,13,26,0.8)", bordercolor="rgba(255,255,255,0.1)", borderwidth=1),
-    dragmode="pan",
-    margin=dict(l=10, r=10, t=20, b=10),
-    height=500,
-)
-st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": True, "displayModeBar": False})
-
-# ── RSI chart ─────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">// rsi (14)</div>', unsafe_allow_html=True)
-fig_rsi = go.Figure()
-fig_rsi.add_trace(go.Scatter(
+# ── Row 2: RSI ────────────────────────────────────────────────────────────────
+fig.add_trace(go.Scatter(
     x=plot_df["Date"], y=plot_df["RSI"],
     mode="lines", name="RSI",
     line=dict(color="#6ec6ff", width=1.5),
-    fill="tozeroy", fillcolor="rgba(110,198,255,0.05)"
-))
-fig_rsi.add_hline(y=70, line_color="#ff4d6a", line_dash="dash", line_width=1,
-                  annotation_text="Overbought 70", annotation_font=dict(color="#ff4d6a", size=9))
-fig_rsi.add_hline(y=30, line_color="#00c882", line_dash="dash", line_width=1,
-                  annotation_text="Oversold 30", annotation_font=dict(color="#00c882", size=9))
-fig_rsi.update_xaxes(rangebreaks=[dict(bounds=["sat", "sun"])])
-fig_rsi.update_layout(
-    paper_bgcolor="#080d1a", plot_bgcolor="#080d1a",
-    font=dict(family="Inter", color="#c0d4e8", size=11),
-    xaxis=dict(showgrid=False, color="#8aaac8"),
-    yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.04)", color="#8aaac8", range=[0, 100]),
-    showlegend=False,
-    margin=dict(l=10, r=10, t=10, b=10),
-    height=180,
+    fill="tozeroy", fillcolor="rgba(110,198,255,0.04)",
+    hovertemplate="RSI: %{y:.1f}<extra></extra>",
+), row=2, col=1)
+
+# Overbought / oversold bands on RSI
+fig.add_hrect(y0=70, y1=100, fillcolor="rgba(255,77,106,0.06)",
+              line_width=0, row=2, col=1)
+fig.add_hrect(y0=0,  y1=30,  fillcolor="rgba(0,200,130,0.06)",
+              line_width=0, row=2, col=1)
+fig.add_hline(y=70, line_color="#ff4d6a", line_dash="dash", line_width=0.8,
+              annotation_text="70", annotation_font=dict(color="#ff4d6a", size=9),
+              annotation_position="right", row=2, col=1)
+fig.add_hline(y=30, line_color="#00c882", line_dash="dash", line_width=0.8,
+              annotation_text="30", annotation_font=dict(color="#00c882", size=9),
+              annotation_position="right", row=2, col=1)
+
+# ── Layout ────────────────────────────────────────────────────────────────────
+fig.update_xaxes(
+    rangebreaks=[dict(bounds=["sat", "sun"])],
+    showgrid=False, color="#8aaac8",
+    rangeslider_visible=False,
 )
-st.plotly_chart(fig_rsi, use_container_width=True, config={"displayModeBar": False})
+fig.update_yaxes(
+    showgrid=True, gridcolor="rgba(255,255,255,0.05)",
+    color="#8aaac8",
+)
+fig.update_layout(
+    paper_bgcolor="#080d1a",
+    plot_bgcolor="#080d1a",
+    font=dict(family="Inter", color="#c0d4e8", size=11),
+    hovermode="x unified",
+    hoverlabel=dict(
+        bgcolor="#0d1e35",
+        bordercolor="rgba(255,255,255,0.15)",
+        font=dict(family="Inter", color="#e8f0ff", size=11),
+    ),
+    legend=dict(
+        orientation="h",
+        yanchor="bottom", y=1.01,
+        xanchor="left", x=0,
+        bgcolor="rgba(8,13,26,0.0)",
+        font=dict(size=11),
+    ),
+    dragmode="pan",
+    margin=dict(l=10, r=40, t=40, b=10),
+    height=620,
+    yaxis2=dict(range=[0, 100]),
+    xaxis_showticklabels=True,
+    xaxis2_showticklabels=True,
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True,
+    config={
+        "scrollZoom": True,
+        "displayModeBar": True,
+        "modeBarButtonsToRemove": ["autoScale2d", "lasso2d", "select2d"],
+        "modeBarButtonsToAdd": ["drawline", "eraseshape"],
+        "toImageButtonOptions": {"format": "png", "filename": selected_index + "_chart"},
+    }
+)
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-label">// technical insights</div>', unsafe_allow_html=True)
