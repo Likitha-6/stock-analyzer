@@ -56,7 +56,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .hero-company {
     font-family: 'Syne', sans-serif;
-    font-size: 1.8rem; font-weight: 800;
+    font-size: 1.6rem; font-weight: 800;
     color: #f0f4ff; line-height: 1.1; margin-bottom: 0.3rem;
 }
 .hero-symbol {
@@ -75,23 +75,25 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     font-size: 0.68rem; color: #8aaac8;
     margin-right: 0.4rem; margin-top: 0.4rem;
 }
-.price-card {
+.price-strip {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    align-items: center; margin-top: 0.9rem;
+}
+.price-chip {
     background: #0b1525;
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 12px; padding: 1rem 1.2rem;
-    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; padding: 0.35rem 0.9rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    white-space: nowrap;
 }
-.price-label {
-    font-size: 0.68rem; letter-spacing: 0.12em;
-    text-transform: uppercase; color: #8aaac8; margin-bottom: 0.3rem;
+.price-chip-label {
+    font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #8aaac8;
 }
-.price-value {
+.price-chip-value {
     font-family: 'Syne', sans-serif;
-    font-size: 1.6rem; font-weight: 700; color: #f0f4ff; line-height: 1;
+    font-size:0.78rem; font-weight: 700; color: #f0f4ff;
 }
-.price-sub { font-size: 0.68rem; color: #8aaac8; margin-top: 0.2rem; }
-.price-up   { color: #00c882; }
-.price-down { color: #ff4d6a; }
 
 .metric-card {
     background: #0d1628;
@@ -113,10 +115,10 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .metric-value {
     font-family: 'Syne', sans-serif;
-    font-size: 1.4rem; font-weight: 700; color: #f0f4ff; line-height: 1;
+    font-size: 1.1rem; font-weight: 700; color: #f0f4ff; line-height: 1;
 }
 .metric-avg  { font-size: 0.68rem; color: #8aaac8; margin-top: 0.3rem; }
-.metric-signal { font-size: 1.0rem; position: absolute; top: 1rem; right: 1rem; }
+.metric-signal { font-size:0.78rem; position: absolute; top: 1rem; right: 1rem; }
 
 .signal-bar {
     background: #0b1525;
@@ -237,36 +239,29 @@ with left_col:
         )
 
 with right_col:
-    pc1, pc2, pc3 = st.columns(3)
-    # Price card
     price_str = ("Rs." + str(round(price, 2))) if price else "N/A"
-    pc1.markdown(
-        '<div class="price-card">'
-        '<div class="price-label">Price</div>'
-        '<div class="price-value">' + price_str + '</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-    # ATH card
-    ath_str = ("Rs." + str(round(ath, 2))) if ath else "N/A"
-    pc2.markdown(
-        '<div class="price-card">'
-        '<div class="price-label">All Time High</div>'
-        '<div class="price-value" style="font-size:1.1rem;">' + ath_str + '</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-    # % from ATH
+    ath_str   = ("Rs." + str(round(ath,   2))) if ath   else "N/A"
     if pct_from_ath is not None:
-        clr   = "#00c882" if pct_from_ath >= 0 else "#ff4d6a"
-        arrow = "▲" if pct_from_ath >= 0 else "▼"
+        pct_clr = "#00c882" if pct_from_ath >= 0 else "#ff4d6a"
+        arrow   = "▲" if pct_from_ath >= 0 else "▼"
         pct_str = arrow + " " + str(round(abs(pct_from_ath), 1)) + "% from ATH"
     else:
-        clr = "#8aaac8"; pct_str = "N/A"
-    pc3.markdown(
-        '<div class="price-card">'
-        '<div class="price-label">vs ATH</div>'
-        '<div class="price-value" style="font-size:1.1rem;color:' + clr + ';">' + pct_str + '</div>'
+        pct_clr = "#8aaac8"; pct_str = "N/A"
+
+    st.markdown(
+        '<div class="price-strip">'
+        '<div class="price-chip">'
+        '<span class="price-chip-label">Price</span>'
+        '<span class="price-chip-value">' + price_str + '</span>'
+        '</div>'
+        '<div class="price-chip">'
+        '<span class="price-chip-label">ATH</span>'
+        '<span class="price-chip-value">' + ath_str + '</span>'
+        '</div>'
+        '<div class="price-chip">'
+        '<span class="price-chip-label">vs ATH</span>'
+        '<span class="price-chip-value" style="color:' + pct_clr + ';">' + pct_str + '</span>'
+        '</div>'
         '</div>',
         unsafe_allow_html=True
     )
