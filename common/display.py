@@ -119,8 +119,27 @@ def display_metrics(symbol: str, master_df: pd.DataFrame, name_df: pd.DataFrame)
         compare_stocks(symbol, peer_sym, master_df)
         return  # skip single‑stock details
 
-    # ── Single‑stock fundamentals ──
+    # ── Single-stock fundamentals ──
     data = _fetch_core_metrics(symbol)
+
+    # Fill missing values from DB (yfinance often returns None for Indian stocks)
+    db_row = master_df[master_df["Symbol"] == symbol]
+    if not db_row.empty:
+        db = db_row.iloc[0]
+        _db_map = {
+            "ROE":            ("ROE",          1.0),   # DB=0.18, finance.py *100 -> 18%
+            "Profit Margin":  ("ProfitMargin", 1.0),   # DB=0.07, finance.py *100 -> 7%
+            "PE Ratio":       ("PE Ratio",     1.0),
+            "EPS":            ("EPS",          1.0),
+            "Debt to Equity": ("DebtToEquity", 1.0),   # DB=36.0, finance.py /100 -> 0.36
+        }
+        for metric, (db_col, scale) in _db_map.items():
+            if data.get(metric) is None and db_col in db.index and pd.notna(db[db_col]):
+                try:
+                    data[metric] = float(db[db_col]) * scale
+                except (ValueError, TypeError):
+                    pass
+
     industry = master_df.loc[master_df["Symbol"] == symbol, "Industry"].iat[0]
     ind_avg  = get_industry_averages(industry, master_df)
 
