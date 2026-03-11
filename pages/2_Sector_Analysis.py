@@ -21,7 +21,7 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
 
 .page-title {
@@ -236,36 +236,44 @@ if "ind_sel" not in st.session_state:
 
 st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
 
-# ── Row 1: Sector pills ──────────────────────────────────────────────────────
+# ── Row 1: Sector selector ───────────────────────────────────────────────────
 st.markdown('<div class="filter-title">Sector</div>', unsafe_allow_html=True)
-sec_cols = st.columns(len(sectors))
-for i, sec in enumerate(sectors):
-    active = "active" if sec == st.session_state["sec_sel"] else ""
-    if sec_cols[i].button(sec, key="sec_" + sec,
-                          type="primary" if active else "secondary"):
-        st.session_state["sec_sel"] = sec
-        st.session_state["ind_sel"] = None
-        st.rerun()
+sec_sel = st.selectbox(
+    "sector",
+    sectors,
+    index=sectors.index(st.session_state["sec_sel"]) if st.session_state["sec_sel"] in sectors else 0,
+    label_visibility="collapsed",
+    key="sec_selectbox"
+)
+if sec_sel != st.session_state["sec_sel"]:
+    st.session_state["sec_sel"] = sec_sel
+    st.session_state["ind_sel"] = None
+    st.rerun()
 
-sec_sel = st.session_state["sec_sel"]
-
-# ── Row 2: Industry pills ────────────────────────────────────────────────────
+# ── Row 2: Industry selector ──────────────────────────────────────────────────
 industries = sorted(merged_df[merged_df["Big Sectors"] == sec_sel]["Industry"].dropna().unique())
 if st.session_state["ind_sel"] not in industries:
     st.session_state["ind_sel"] = industries[0]
 
-st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='margin-top:0.6rem;'></div>", unsafe_allow_html=True)
 st.markdown('<div class="filter-title">Industry</div>', unsafe_allow_html=True)
 
-# Split industries into rows of 5
-IND_PER_ROW = 6
+# Render as evenly spaced pill buttons using st.columns with equal weights
+IND_PER_ROW = 5
 for row_start in range(0, len(industries), IND_PER_ROW):
     row_inds = industries[row_start:row_start + IND_PER_ROW]
-    ind_cols = st.columns(len(row_inds))
-    for j, ind in enumerate(row_inds):
+    # Pad to IND_PER_ROW so spacing is always consistent
+    padded = row_inds + [""] * (IND_PER_ROW - len(row_inds))
+    ind_cols = st.columns(IND_PER_ROW)
+    for j, ind in enumerate(padded):
+        if ind == "":
+            continue
         active = ind == st.session_state["ind_sel"]
-        if ind_cols[j].button(ind, key="ind_" + ind,
-                               type="primary" if active else "secondary"):
+        if ind_cols[j].button(
+            ind, key="ind_" + ind,
+            type="primary" if active else "secondary",
+            use_container_width=True
+        ):
             st.session_state["ind_sel"] = ind
             st.rerun()
 
