@@ -3,490 +3,496 @@ import yfinance as yf
 import plotly.graph_objects as go
 import pandas as pd
 from common.data import load_name_lookup
-from indicators import apply_sma, apply_ema, get_pivot_lines
-from indicators import detect_cross_signals,compute_rsi
+from indicators import apply_sma, apply_ema, get_pivot_lines, detect_cross_signals, compute_rsi
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-st.set_page_config(page_title="Technical Chart", layout="wide")
+st.set_page_config(
+    page_title="Technical Analysis",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
 
-# ─────────────────────────────
-# Theme selector
-# ─────────────────────────────
-col_title, col_theme = st.columns([6, 1])
-with col_title:
-    st.title("Indian Stock – Technical Analysis")
-with col_theme:
-    dark_mode = st.checkbox("🌙 Dark Mode", value=False)
+# ── CSS ───────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-theme = "Dark" if dark_mode else "Light"
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+#MainMenu, footer { visibility: hidden; }
+.block-container { padding-top: 2rem; padding-bottom: 2rem; }
 
-# Theme colors
-bg_color = "#FFFFFF" if theme == "Light" else "#0E1117"
-font_color = "#000000" if theme == "Light" else "#FFFFFF"
-increasing_color = "#00B26F" if theme == "Light" else "#26de81"
-decreasing_color = "#FF3C38" if theme == "Light" else "#eb3b5a"
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] div,
+[data-testid="stMarkdownContainer"] span { font-size: inherit !important; }
 
-# ─────────────────────────────
-# Search bar (shared for all tabs)
-# ─────────────────────────────
+.page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.0rem !important; font-weight: 800;
+    color: #f0f4ff; letter-spacing: -0.02em; margin-bottom: 0.2rem;
+}
+.page-sub {
+    font-size: 0.78rem !important; color: #8aaac8;
+    margin-bottom: 1.6rem; letter-spacing: 0.05em;
+}
+.section-label {
+    font-size: 0.68rem !important; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #8aaac8;
+    border-left: 3px solid #00c882; padding-left: 0.6rem;
+    margin-bottom: 0.8rem; margin-top: 1.6rem;
+}
+.ctrl-bar {
+    background: #0b1525;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 1.2rem 1.6rem;
+    margin-bottom: 1.4rem;
+}
+.stat-card {
+    background: #0d1628;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px; padding: 1rem 1.2rem;
+    position: relative; overflow: hidden;
+    text-align: center;
+}
+.stat-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, #00c882, transparent);
+}
+.stat-label {
+    font-size: 0.68rem !important; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #8aaac8; margin-bottom: 0.3rem;
+}
+.stat-value {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem !important; font-weight: 700;
+    color: #f0f4ff; font-variant-numeric: tabular-nums;
+}
+.stat-value.up   { color: #00c882; }
+.stat-value.down { color: #ff4d6a; }
+
+.insight-card {
+    background: #0d1628;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px; padding: 0.9rem 1.2rem;
+    margin-bottom: 0.6rem;
+    display: flex; align-items: flex-start; gap: 0.8rem;
+}
+.insight-icon { font-size: 1.1rem !important; flex-shrink: 0; margin-top: 0.1rem; }
+.insight-text { font-size: 0.78rem !important; color: #c0d4e8; line-height: 1.5; }
+.insight-card.green { border-left: 3px solid #00c882; }
+.insight-card.yellow { border-left: 3px solid #f5a623; }
+.insight-card.red { border-left: 3px solid #ff4d6a; }
+.insight-card.blue { border-left: 3px solid #6ec6ff; }
+
+div[data-testid="stTabs"] button {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem !important; font-weight: 600;
+    letter-spacing: 0.04em;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown('<div class="page-title">📈 Technical Analysis</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-sub">// Candlestick chart · indicators · insights · market view</div>', unsafe_allow_html=True)
+
+# ── Search ────────────────────────────────────────────────────────────────────
 name_df = load_name_lookup()
-symbol2name = dict(zip(name_df["Symbol"], name_df["Company Name"]))
-
-search_query = st.text_input("Search by Symbol or Company Name").strip().lower()
 chosen_sym = None
+default_sym = st.session_state.get("compare_symbol")
 
-if search_query:
-    mask = (
-        name_df["Symbol"].str.lower().str.contains(search_query) |
-        name_df["Company Name"].str.lower().str.contains(search_query)
-    )
-    matches = name_df[mask]
-
-    if matches.empty:
-        st.warning("No matching stock found.")
-    else:
-        selected = st.selectbox(
-            "Select Stock",
-            matches["Symbol"] + " - " + matches["Company Name"]
+if default_sym and not st.session_state.get("ta_loaded_from_sector"):
+    chosen_sym = default_sym
+    st.session_state["ta_loaded_from_sector"] = True
+else:
+    query = st.text_input(
+        "search", "🔍  Search by symbol or company name",
+        label_visibility="collapsed",
+        placeholder="e.g. RELIANCE or Tata Consultancy..."
+    ).strip()
+    if query and query != "🔍  Search by symbol or company name":
+        mask = (
+            name_df["Symbol"].str.contains(query, case=False, na=False) |
+            name_df["Company Name"].str.contains(query, case=False, na=False)
         )
-        chosen_sym = selected.split(" - ")[0]
+        matches = name_df[mask]
+        if matches.empty:
+            st.warning("No matching stock found.")
+        else:
+            sel = st.selectbox(
+                "select", matches["Symbol"] + " — " + matches["Company Name"],
+                label_visibility="collapsed"
+            )
+            chosen_sym = sel.split(" — ")[0]
 
-# ─────────────────────────────
-# Tabs
-# ─────────────────────────────
-tab1, tab2, tab3 = st.tabs([" Chart", " Insights", " View"])
+if not chosen_sym:
+    st.stop()
 
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab1, tab2, tab3 = st.tabs(["📊  Chart", "🔍  Insights", "🌐  Market View"])
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 1 — CHART
+# ═══════════════════════════════════════════════════════════════════
 with tab1:
-    # ─────────────────────────────
-    # Interval dropdown
-    # ─────────────────────────────
-    interval_mapping = {
-        "5 minutes": "5m",
-        "15 minutes": "15m",
-        "1 hour": "60m",
-        "1 day": "1d"
-    }
-    label    = st.selectbox("Select Interval", list(interval_mapping.keys()), index=0)
+    st.markdown('<div class="ctrl-bar">', unsafe_allow_html=True)
+    cc1, cc2, cc3 = st.columns([2, 2, 3])
+
+    interval_mapping = {"5 min": "5m", "15 min": "15m", "1 hour": "60m", "1 day": "1d"}
+    label    = cc1.selectbox("Interval", list(interval_mapping.keys()), index=3, label_visibility="visible")
     interval = interval_mapping[label]
 
-    # ─────────────────────────────
-    # Session-state helpers
-    # ─────────────────────────────
-    if "candle_days" not in st.session_state:
-        st.session_state.candle_days = 1
-
-    # Indicator selection
-    all_indicators = st.multiselect("Select Indicators", ["SMA", "EMA"], default=[])
+    all_indicators = cc2.multiselect("Indicators", ["SMA", "EMA"], default=[])
 
     sma_lengths, ema_lengths = [], []
-    
     if "SMA" in all_indicators:
-        sma_input = st.text_input("SMA lengths (comma-separated, e.g. 20,50)", value="20,50", key="sma_input")
-        try:
-            sma_lengths = [int(x.strip()) for x in sma_input.split(",") if x.strip().isdigit()]
-        except Exception:
-            sma_lengths = []
+        raw = cc3.text_input("SMA periods (e.g. 20,50)", value="20,50", key="sma_input")
+        sma_lengths = [int(x.strip()) for x in raw.split(",") if x.strip().isdigit()]
+    if "EMA" in all_indicators:
+        raw = cc3.text_input("EMA periods (e.g. 20,50)", value="20,50", key="ema_input")
+        ema_lengths = [int(x.strip()) for x in raw.split(",") if x.strip().isdigit()]
 
-if "EMA" in all_indicators:
-    ema_input = st.text_input("EMA lengths (comma-separated, e.g. 20,50)", value="20,50", key="ema_input")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    period = "60d" if interval == "1d" else "5d" if interval == "60m" else "2d"
+
+    if interval != "1d":
+        if "candle_days" not in st.session_state:
+            st.session_state.candle_days = 1
+        bc1, bc2 = st.columns([1, 1])
+        if bc1.button("🔁 Load older candles"):
+            st.session_state.candle_days += 1
+        if bc2.button("♻️ Reset to 1 day"):
+            st.session_state.candle_days = 1
+        st.caption("Showing " + str(st.session_state.candle_days) + " day(s) of data")
+
     try:
-        ema_lengths = [int(x.strip()) for x in ema_input.split(",") if x.strip().isdigit()]
-    except Exception:
-        ema_lengths = []
-    # Choose period so the chart loads enough candles
-    period = (
-        "60d" if interval == "1d" else
-        "5d"  if interval == "60m" else
-        "2d"
-    )
+        df = yf.Ticker(chosen_sym + ".NS").history(interval=interval, period=period)
+        df = df.reset_index()
 
-    # Buttons to pull older intraday candles (only if intraday)
-    if interval != "1d" and chosen_sym:
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            if st.button("🔁 Load older candles"):
-                st.session_state.candle_days += 1
-        with c2:
-            if st.button("♻️ Reset to 1 Day"):
-                st.session_state.candle_days = 1
-        st.caption(f"Showing: **{st.session_state.candle_days} day(s)** of data")
+        if df.empty:
+            st.error("No price data found for this stock.")
+        else:
+            st.session_state.df_stock = df
+            x_col  = "Datetime" if "Datetime" in df.columns else "Date"
+            is_intraday = any(k in interval for k in ("m", "h"))
+            df["x_label"] = (
+                df[x_col].dt.strftime("%d/%m %H:%M") if is_intraday
+                else df[x_col].dt.strftime("%d/%m/%y")
+            )
 
-    # ─────────────────────────────
-    # Chart section
-    # ─────────────────────────────
-    if chosen_sym:
-        try:
-            df = yf.Ticker(chosen_sym + ".NS").history(interval=interval, period=period)
-            df = df.reset_index()
+            fig = go.Figure()
 
-            if df.empty:
-                st.error("No data found.")
-                st.session_state.df_stock = None
+            # Candlestick
+            fig.add_trace(go.Candlestick(
+                x=df["x_label"],
+                open=df["Open"], high=df["High"],
+                low=df["Low"],   close=df["Close"],
+                increasing_line_color="#00c882",
+                decreasing_line_color="#ff4d6a",
+                name="Price"
+            ))
+
+            # Support / Resistance
+            x_col_name = "Datetime" if "Datetime" in df.columns else "Date"
+            if interval == "5m":
+                sr_df = df[df[x_col_name].dt.date == df[x_col_name].max().date()]
+            elif interval == "15m":
+                end_d = df[x_col_name].max().date()
+                sr_df = df[df[x_col_name].dt.date >= end_d - pd.Timedelta(days=7)]
             else:
-                st.session_state.df_stock = df
-                x_col = "Datetime" if "Datetime" in df.columns else "Date"
-                df["x_label"] = (
-                    df[x_col].dt.strftime("%d/%m %H:%M")
-                    if any(k in interval for k in ("m", "h"))
-                    else df[x_col].dt.strftime("%d/%m")
-                )
+                sr_df = df
+            support    = sr_df["Low"].min()
+            resistance = sr_df["High"].max()
 
-                # ────────────────── build candlestick figure ──────────────────
-                fig = go.Figure()
-                fig.add_trace(go.Candlestick(
-                    x=df["x_label"],
-                    open=df["Open"],
-                    high=df["High"],
-                    low=df["Low"],
-                    close=df["Close"],
-                    increasing_line_color=increasing_color,
-                    decreasing_line_color=decreasing_color,
-                    name="Price"
-                ))
+            fig.add_hline(y=support, line_dash="dot", line_width=1.2, line_color="#00c882",
+                          annotation=dict(text="Support", font=dict(color="#00c882", size=11), yanchor="bottom"))
+            fig.add_hline(y=resistance, line_dash="dot", line_width=1.2, line_color="#ff4d6a",
+                          annotation=dict(text="Resistance", font=dict(color="#ff4d6a", size=11), yanchor="top"))
 
-                # ←────────────── support / resistance logic ──────────────→
-                if interval == "5m":               # 1-day levels
-                    last_day = df[x_col].max().date()
-                    sr_df = df[df[x_col].dt.date == last_day]
-                elif interval == "15m":            # 1-week levels
-                    end_date   = df[x_col].max().date()
-                    start_date = end_date - pd.Timedelta(days=7)
-                    sr_df = df[df[x_col].dt.date >= start_date]
-                else:                              # fallback: whole df
-                    sr_df = df
-
-                support    = sr_df["Low"].min()
-                resistance = sr_df["High"].max()
-
-                fig.add_hline(
-                    y=support,
-                    line_dash="dot",
-                    line_width=1,
-                    line_color="#2ecc71",
-                    annotation=dict(text="Support", yanchor="bottom",
-                                    font=dict(color="#2ecc71"))
-                )
-                fig.add_hline(
-                    y=resistance,
-                    line_dash="dot",
-                    line_width=1,
-                    line_color="#e74c3c",
-                    annotation=dict(text="Resistance", yanchor="top",
-                                    font=dict(color="#e74c3c"))
-                )
-                # ────────────────── indicator overlays (EMA) ──────────────────
-                if sma_lengths:
-                    df = apply_sma(df, sma_lengths)
-                    for sma_len in sma_lengths:
-                        col = f"SMA_{sma_len}"
-                        if col in df.columns and df[col].notna().sum() > 5:
-                            fig.add_trace(go.Scatter(
-                                x=df["x_label"], y=df[col],
-                                mode="lines",
-                                line=dict(width=1.5, dash="dash"),
-                                name=f"SMA ({sma_len})"
-                            ))
-                if ema_lengths:
-                    df = apply_ema(df, ema_lengths)
-                    for ema_len in ema_lengths:
+            # SMA overlays
+            if sma_lengths:
+                df = apply_sma(df, sma_lengths)
+                colors_sma = ["#f5a623", "#6ec6ff", "#b388ff", "#ff80ab"]
+                for idx_s, sma_len in enumerate(sma_lengths):
+                    col = "SMA_" + str(sma_len)
+                    if col in df.columns and df[col].notna().sum() > 5:
                         fig.add_trace(go.Scatter(
-                            x=df["x_label"],
-                            y=df[f"EMA_{ema_len}"],
-                            mode="lines",
-                            line=dict(width=1.5, dash="solid"),
-                            name=f"EMA ({ema_len})"
+                            x=df["x_label"], y=df[col], mode="lines",
+                            line=dict(width=1.5, color=colors_sma[idx_s % len(colors_sma)]),
+                            name="SMA " + str(sma_len)
                         ))
 
-                # (Your crossover-signal logic unchanged)
-                from indicators import detect_crossovers
-                signals = detect_crossovers(df, short_col="EMA_20", long_col="EMA_50")
-                for idx in signals["buy"]:
-                    fig.add_trace(go.Scatter(
-                        x=[df["x_label"][idx]], y=[df["Close"][idx]],
-                        mode="markers",
-                        marker=dict(color='green', size=10),
-                        name='Buy Signal'
-                    ))
-                for idx in signals["sell"]:
-                    fig.add_trace(go.Scatter(
-                        x=[df["x_label"][idx]], y=[df["Close"][idx]],
-                        mode="markers",
-                        marker=dict(color='red', size=10),
-                        name='Sell Signal'
-                    ))
+            # EMA overlays
+            if ema_lengths:
+                df = apply_ema(df, ema_lengths)
+                colors_ema = ["#ff80ab", "#80d8ff", "#ccff90", "#ffd180"]
+                for idx_e, ema_len in enumerate(ema_lengths):
+                    col = "EMA_" + str(ema_len)
+                    if col in df.columns and df[col].notna().sum() > 5:
+                        fig.add_trace(go.Scatter(
+                            x=df["x_label"], y=df[col], mode="lines",
+                            line=dict(width=1.5, dash="dash", color=colors_ema[idx_e % len(colors_ema)]),
+                            name="EMA " + str(ema_len)
+                        ))
 
-                # ────────────────── layout tweaks ──────────────────
-                total_candles = len(df)
-                max_ticks     = 15
-                N             = max(1, total_candles // max_ticks)
-                tickvals      = df["x_label"].iloc[::N].tolist()
+            fig.update_layout(
+                paper_bgcolor="#080d1a",
+                plot_bgcolor="#080d1a",
+                font=dict(family="Inter", color="#c0d4e8", size=11),
+                xaxis=dict(
+                    showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                    color="#8aaac8", rangeslider_visible=False,
+                    tickfont=dict(size=10),
+                ),
+                yaxis=dict(
+                    showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                    color="#8aaac8", side="right",
+                ),
+                legend=dict(
+                    bgcolor="rgba(8,13,26,0.8)",
+                    bordercolor="rgba(255,255,255,0.1)",
+                    borderwidth=1, font=dict(size=10),
+                ),
+                margin=dict(l=10, r=60, t=20, b=40),
+                height=500,
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-                fig.update_layout(
-                    title=f"{chosen_sym}.NS – {label} Chart ({period})",
-                    xaxis_title="Date/Time",
-                    yaxis_title="Price",
-                    xaxis=dict(
-                        type="category",
-                        tickangle=-45,
-                        showgrid=False,
-                        tickfont=dict(color=font_color),
-                        tickmode="array",
-                        tickvals=tickvals,
-                        ticktext=tickvals
-                    ),
-                    yaxis=dict(
-                        showgrid=False,
-                        tickfont=dict(color="#000000" if theme == "Light" else font_color),
-                        fixedrange=False
-                    ),
-                    plot_bgcolor=bg_color,
-                    paper_bgcolor=bg_color,
-                    font=dict(color=font_color),
-                    legend=dict(font=dict(color=font_color)),
-                    xaxis_rangeslider_visible=False,
-                    dragmode="pan",
-                    hovermode="x unified",
-                    height=600,
-                    width=900
-                )
+    except Exception as e:
+        st.error("Error loading chart: " + str(e))
 
-                # ───────────────────────────────
-                # Render chart in Streamlit
-                # ───────────────────────────────
-                st.plotly_chart(
-                    fig,
-                    use_container_width=False,
-                    config={
-                        "scrollZoom": True,
-                        "displayModeBar": True,
-                        "modeBarButtonsToRemove": [
-                            "zoom2d", "select2d", "lasso2d",
-                            "zoomIn2d", "zoomOut2d"
-                        ],
-                        "displaylogo": False
-                    }
-                )
-
-        except Exception as e:
-            st.error(f"Error: {e}")
-
-
+# ═══════════════════════════════════════════════════════════════════
+# TAB 2 — INSIGHTS
+# ═══════════════════════════════════════════════════════════════════
 with tab2:
-    if chosen_sym:
-        # Always fetch enough data for SMA 200
-        df_insights = yf.Ticker(chosen_sym + ".NS").history(interval="1d", period="12mo")
-        if not df_insights.empty:
-            df_insights = df_insights.reset_index()
-            df_insights["SMA_50"] = df_insights["Close"].rolling(window=50).mean()
-            df_insights["SMA_200"] = df_insights["Close"].rolling(window=200).mean()
-            df_insights["EMA_20"] = df_insights["Close"].ewm(span=20, adjust=False).mean()
-            high_52w = df_insights["High"].max()
-            low_52w = df_insights["Low"].min()
-
-            latest_price = df_insights["Close"].iloc[-1]
-            latest_sma50 = df_insights["SMA_50"].iloc[-1]
-            latest_sma200 = df_insights["SMA_200"].iloc[-1]
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.metric("Current Price", f"₹{latest_price:,.2f}")
-    
-            with col2:
-                st.metric(
-                    "50-day SMA",
-                    f"₹{latest_sma50:,.2f}" if pd.notna(latest_sma50) else "Not Available"
-                )
-    
-            with col3:
-                st.metric(
-                    " 200-day SMA",
-                    f"₹{latest_sma200:,.2f}" if pd.notna(latest_sma200) else "Not Available"
-                )
-            
-            if df_insights["EMA_20"].iloc[-1] > df_insights["EMA_20"].iloc[-5]:
-                st.success("20-day EMA is sloping upward — short-term trend is strengthening.")
-            else:
-                st.warning("20-day EMA is sloping downward — short-term trend may be weakening.")
-
-            if not df_insights["Close"].empty and len(df_insights["Close"]) >= 14:
-                recent_close = df_insights["Close"].tail(14)
-                volatility = recent_close.std()
-                latest_price = df_insights["Close"].iloc[-1]
-                vol_pct = (volatility / latest_price) * 100
-            
-                #st.subheader("📊 Volatility Insight")
-                #st.write(f"14-day Price Std Dev: ₹{volatility:.2f} ({vol_pct:.2f}%)")
-            
-                if vol_pct > 5:
-                    st.warning(" High volatility — expect bigger price swings.")
-                elif vol_pct < 2:
-                    st.info(" Low volatility — stable price action.")
-                else:
-                    st.success(" Moderate volatility — balanced risk/reward.")
-
-
-            if abs(latest_price - high_52w) < 0.03 * high_52w:
-                st.info("🚀 Price is near its 52-week high — possible resistance level.")
-            elif abs(latest_price - low_52w) < 0.03 * low_52w:
-                st.info("🔻 Price is near its 52-week low — potential support level.")
-            df_insights["RSI"] = compute_rsi(df_insights)
-
-            latest_rsi = df_insights["RSI"].iloc[-1]
-            #st.metric("📊 RSI (14-day)", f"{latest_rsi:.2f}")
-            
-            if latest_rsi > 70:
-                st.warning(" The stock is overbought — momentum may slow, and there could be a short-term dip or consolidation.")
-            elif latest_rsi < 30:
-                st.success("The stock is oversold — selling may be exhausted, and a potential rebound could follow.")
-            else:
-                st.info(" RSI is in neutral zone – no strong momentum signal.")
-                        
-
-            signal = detect_cross_signals(df_insights)
-            if signal:
-                st.info(signal)
+    try:
+        df_i = yf.Ticker(chosen_sym + ".NS").history(period="1y", interval="1d")
+        if df_i.empty or len(df_i) < 20:
+            st.warning("Not enough historical data to compute insights.")
         else:
-            st.warning("Not enough data to compute insights.")
+            df_i = df_i.reset_index()
+            df_i["SMA_50"]  = df_i["Close"].rolling(50).mean()
+            df_i["SMA_200"] = df_i["Close"].rolling(200).mean()
+            df_i["EMA_20"]  = df_i["Close"].ewm(span=20, adjust=False).mean()
+            df_i["RSI"]     = compute_rsi(df_i)
 
+            latest_price  = df_i["Close"].iloc[-1]
+            latest_sma50  = df_i["SMA_50"].iloc[-1]
+            latest_sma200 = df_i["SMA_200"].iloc[-1]
+            latest_ema20  = df_i["EMA_20"].iloc[-1]
+            latest_rsi    = df_i["RSI"].iloc[-1]
+            high_52w      = df_i["High"].max()
+            low_52w       = df_i["Low"].min()
 
+            # ── Stat cards row ────────────────────────────────────────────
+            st.markdown('<div class="section-label">// key levels</div>', unsafe_allow_html=True)
+            kc1, kc2, kc3, kc4, kc5 = st.columns(5)
 
+            def _stat(col, label, value, cls=""):
+                col.markdown(
+                    '<div class="stat-card">'
+                    '<div class="stat-label">' + label + '</div>'
+                    '<div class="stat-value ' + cls + '">' + value + '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+            _stat(kc1, "Current Price", "Rs." + str(round(latest_price, 2)))
+            _stat(kc2, "50-Day SMA",  "Rs." + str(round(latest_sma50,  2)) if pd.notna(latest_sma50)  else "N/A")
+            _stat(kc3, "200-Day SMA", "Rs." + str(round(latest_sma200, 2)) if pd.notna(latest_sma200) else "N/A")
+            _stat(kc4, "52-Week High", "Rs." + str(round(high_52w, 2)))
+            _stat(kc5, "52-Week Low",  "Rs." + str(round(low_52w,  2)))
+
+            # RSI gauge
+            st.markdown('<div class="section-label">// RSI · momentum · signals</div>', unsafe_allow_html=True)
+            rsi_col, sig_col = st.columns([1, 2])
+
+            rsi_cls = "down" if latest_rsi > 70 else "up" if latest_rsi < 30 else ""
+            rsi_col.markdown(
+                '<div class="stat-card" style="margin-bottom:0;">'
+                '<div class="stat-label">RSI (14)</div>'
+                '<div class="stat-value ' + rsi_cls + '" style="font-size:2.0rem !important;">' + str(round(latest_rsi, 1)) + '</div>'
+                '<div style="font-size:0.68rem !important;color:#8aaac8;margin-top:0.3rem;">'
+                + ("Overbought" if latest_rsi > 70 else "Oversold" if latest_rsi < 30 else "Neutral zone") +
+                '</div></div>',
+                unsafe_allow_html=True
+            )
+
+            # Insight cards
+            def _insight(col, icon, text, kind="blue"):
+                col.markdown(
+                    '<div class="insight-card ' + kind + '">'
+                    '<div class="insight-icon">' + icon + '</div>'
+                    '<div class="insight-text">' + text + '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+            with sig_col:
+                # EMA trend
+                if len(df_i) >= 5 and df_i["EMA_20"].iloc[-1] > df_i["EMA_20"].iloc[-5]:
+                    _insight(sig_col, "📈", "20-day EMA sloping up — short-term trend is strengthening.", "green")
+                else:
+                    _insight(sig_col, "📉", "20-day EMA sloping down — short-term trend may be weakening.", "yellow")
+
+                # RSI signal
+                if latest_rsi > 70:
+                    _insight(sig_col, "⚠️", "RSI above 70 — stock is overbought. Momentum may slow with a possible short-term dip.", "red")
+                elif latest_rsi < 30:
+                    _insight(sig_col, "✅", "RSI below 30 — stock is oversold. Selling may be exhausted, potential rebound could follow.", "green")
+                else:
+                    _insight(sig_col, "➡️", "RSI in neutral zone (" + str(round(latest_rsi, 1)) + ") — no strong momentum signal.", "blue")
+
+                # 52-week proximity
+                if abs(latest_price - high_52w) < 0.03 * high_52w:
+                    _insight(sig_col, "🚀", "Price is near its 52-week high — watch for resistance.", "yellow")
+                elif abs(latest_price - low_52w) < 0.03 * low_52w:
+                    _insight(sig_col, "🔻", "Price is near its 52-week low — potential support zone.", "yellow")
+
+            # Volatility
+            if len(df_i["Close"]) >= 14:
+                vol_pct = (df_i["Close"].tail(14).std() / latest_price) * 100
+                if vol_pct > 5:
+                    _insight(st, "🌊", "High volatility (" + str(round(vol_pct, 1)) + "%) — expect larger price swings.", "red")
+                elif vol_pct < 2:
+                    _insight(st, "😴", "Low volatility (" + str(round(vol_pct, 1)) + "%) — stable, range-bound price action.", "blue")
+                else:
+                    _insight(st, "⚖️", "Moderate volatility (" + str(round(vol_pct, 1)) + "%) — balanced risk/reward.", "green")
+
+            # Golden/death cross
+            signal = detect_cross_signals(df_i)
+            if signal:
+                kind = "green" if "Bullish" in signal or "Golden" in signal or "pullback" in signal else "red"
+                _insight(st, "🔀", signal.lstrip("✅❌📉📈⚠️ "), kind)
+
+    except Exception as e:
+        st.error("Error loading insights: " + str(e))
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 3 — MARKET VIEW
+# ═══════════════════════════════════════════════════════════════════
 with tab3:
-    st.subheader(f"Market View for {chosen_sym or 'selected stock'}")
+    try:
+        stock_df = yf.Ticker(chosen_sym + ".NS").history(period="6mo", interval="1d")
+        nifty_df = yf.Ticker("^NSEI").history(period="6mo", interval="1d")
 
-    if chosen_sym:
-        try:
-            # Load stock and NIFTY50 data
-            stock_df = yf.Ticker(chosen_sym + ".NS").history(period="6mo", interval="1d")
-            nifty_df = yf.Ticker("^NSEI").history(period="6mo", interval="1d")  # NIFTY 50
+        if stock_df.empty or nifty_df.empty:
+            st.warning("Could not load data for market view.")
+        else:
+            stock_df = stock_df.reset_index()
+            nifty_df = nifty_df.reset_index()
+            df_m = pd.merge(
+                stock_df[["Date", "Close", "Volume"]],
+                nifty_df[["Date", "Close"]],
+                on="Date", suffixes=("", "_NIFTY")
+            )
+            df_m["Return"]       = df_m["Close"].pct_change()
+            df_m["NIFTY_Return"] = df_m["Close_NIFTY"].pct_change()
 
-            if not stock_df.empty and not nifty_df.empty:
-                stock_df = stock_df.reset_index()
-                nifty_df = nifty_df.reset_index()
+            # ── Performance stat cards ────────────────────────────────────
+            st.markdown('<div class="section-label">// price performance</div>', unsafe_allow_html=True)
 
-                # Ensure both have the same date index
-                df_merged = pd.merge(
-                    stock_df[["Date", "Close", "Volume"]],
-                    nifty_df[["Date", "Close"]],
-                    on="Date",
-                    suffixes=("", "_NIFTY")
-                )
+            def _chg(n):
+                try:
+                    v = (df_m["Close"].iloc[-1] / df_m["Close"].iloc[-n] - 1) * 100
+                    return round(v, 2)
+                except Exception:
+                    return None
 
-                # Compute price returns
-                df_merged["Return"] = df_merged["Close"].pct_change()
-                df_merged["NIFTY_Return"] = df_merged["Close_NIFTY"].pct_change()
-                ticker = yf.Ticker(chosen_sym + ".NS")
-                ratings_df = ticker.recommendations
-                #st.write(ratings_df)
+            changes = [("1 Day", _chg(2)), ("5 Days", _chg(6)),
+                       ("1 Month", _chg(22)), ("6 Months", _chg(len(df_m)))]
 
-                def convert_to_month(period_label):
+            perf_cols = st.columns(4)
+            for pcol, (label, val) in zip(perf_cols, changes):
+                if val is not None:
+                    cls = "up" if val >= 0 else "down"
+                    arrow = "▲" if val >= 0 else "▼"
+                    pcol.markdown(
+                        '<div class="stat-card">'
+                        '<div class="stat-label">' + label + '</div>'
+                        '<div class="stat-value ' + cls + '">' + arrow + " " + str(abs(val)) + '%</div>'
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
+
+            # ── Volume ────────────────────────────────────────────────────
+            st.markdown('<div class="section-label">// volume</div>', unsafe_allow_html=True)
+            vc1, vc2, vc3 = st.columns(3)
+            latest_vol = int(df_m["Volume"].iloc[-1])
+            avg_vol    = int(df_m["Volume"].tail(21).mean())
+            vol_ratio  = latest_vol / avg_vol if avg_vol > 0 else 1
+            vol_cls    = "up" if vol_ratio >= 1.2 else "down" if vol_ratio < 0.8 else ""
+
+            vc1.markdown('<div class="stat-card"><div class="stat-label">Today Volume</div><div class="stat-value">' + f"{latest_vol:,}" + '</div></div>', unsafe_allow_html=True)
+            vc2.markdown('<div class="stat-card"><div class="stat-label">21-Day Avg</div><div class="stat-value">' + f"{avg_vol:,}" + '</div></div>', unsafe_allow_html=True)
+            vc3.markdown('<div class="stat-card"><div class="stat-label">Vol Ratio</div><div class="stat-value ' + vol_cls + '">' + str(round(vol_ratio, 2)) + 'x</div></div>', unsafe_allow_html=True)
+
+            # ── Support / Resistance + NIFTY correlation ──────────────────
+            st.markdown('<div class="section-label">// support · resistance · correlation</div>', unsafe_allow_html=True)
+            src1, src2, src3 = st.columns(3)
+            support    = round(df_m["Close"].rolling(20).min().iloc[-1], 2)
+            resistance = round(df_m["Close"].rolling(20).max().iloc[-1], 2)
+            corr       = round(df_m["Return"].corr(df_m["NIFTY_Return"]), 2)
+            corr_cls   = "up" if corr > 0.7 else "down" if corr < 0.3 else ""
+
+            src1.markdown('<div class="stat-card"><div class="stat-label">Support (20d)</div><div class="stat-value">Rs.' + str(support) + '</div></div>', unsafe_allow_html=True)
+            src2.markdown('<div class="stat-card"><div class="stat-label">Resistance (20d)</div><div class="stat-value">Rs.' + str(resistance) + '</div></div>', unsafe_allow_html=True)
+            src3.markdown('<div class="stat-card"><div class="stat-label">NIFTY Correlation</div><div class="stat-value ' + corr_cls + '">' + str(corr) + '</div></div>', unsafe_allow_html=True)
+
+            # Correlation insight
+            if corr > 0.7:
+                st.markdown('<div class="insight-card green"><div class="insight-icon">✅</div><div class="insight-text">Highly correlated with the broader market (NIFTY 50). Moves largely with the index.</div></div>', unsafe_allow_html=True)
+            elif corr < 0.3:
+                st.markdown('<div class="insight-card yellow"><div class="insight-icon">⚠️</div><div class="insight-text">Moves largely independently of the NIFTY index — stock-specific factors dominate.</div></div>', unsafe_allow_html=True)
+
+            # Most traded range
+            price_bins  = pd.cut(df_m["Close"], bins=20)
+            most_traded = price_bins.value_counts().idxmax()
+            st.markdown(
+                '<div class="insight-card blue"><div class="insight-icon">📊</div>'
+                '<div class="insight-text">Most traded price range (last 6 months): <strong>Rs.' + str(round(most_traded.left, 2)) + ' – Rs.' + str(round(most_traded.right, 2)) + '</strong></div></div>',
+                unsafe_allow_html=True
+            )
+
+            # ── Analyst recommendations chart ─────────────────────────────
+            st.markdown('<div class="section-label">// analyst recommendations</div>', unsafe_allow_html=True)
+            try:
+                ticker   = yf.Ticker(chosen_sym + ".NS")
+                rec_df   = ticker.recommendations
+
+                def _to_month(p):
                     try:
-                        offset = int(str(period_label).replace("m", ""))
-                        month = datetime.today() + relativedelta(months=offset)
-                        return month.strftime("%b")  # e.g., 'Jul', 'Jun'
-                    except:
-                        return str(period_label)
-                
-                ratings_df["Month"] = ratings_df["period"].apply(convert_to_month)
-                
+                        offset = int(str(p).replace("m", ""))
+                        return (datetime.today() + relativedelta(months=offset)).strftime("%b %y")
+                    except Exception:
+                        return str(p)
 
-                # Compute Buy, Hold, Sell categories
-                ratings_df["Buy"] = ratings_df["strongBuy"] + ratings_df["buy"]
-                ratings_df["Sell"] = ratings_df["sell"] + ratings_df["strongSell"]
-                
-                # Ensure order of display (most recent first)
-                ratings_df = ratings_df[::-1]
-                
-                # Create grouped bar chart
-                fig = go.Figure()
-                
-                fig.add_trace(go.Bar(
-                    x=ratings_df["Month"],
-                    y=ratings_df["Buy"],
-                    name="✅ Buy",
-                    marker_color="green"
-                ))
-                
-                fig.add_trace(go.Bar(
-                    x=ratings_df["Month"],
-                    y=ratings_df["hold"],
-                    name="⚪ Hold",
-                    marker_color="gray"
-                ))
-                
-                fig.add_trace(go.Bar(
-                    x=ratings_df["Month"],
-                    y=ratings_df["Sell"],
-                    name="❌ Sell",
-                    marker_color="red"
-                ))
-                
-                fig.update_layout(
+                rec_df["Month"] = rec_df["period"].apply(_to_month)
+                rec_df["Buy"]   = rec_df["strongBuy"] + rec_df["buy"]
+                rec_df["Sell"]  = rec_df["sell"]      + rec_df["strongSell"]
+                rec_df = rec_df[::-1]
+
+                fig_r = go.Figure()
+                fig_r.add_trace(go.Bar(x=rec_df["Month"], y=rec_df["Buy"],  name="Buy",  marker_color="#00c882"))
+                fig_r.add_trace(go.Bar(x=rec_df["Month"], y=rec_df["hold"], name="Hold", marker_color="#8aaac8"))
+                fig_r.add_trace(go.Bar(x=rec_df["Month"], y=rec_df["Sell"], name="Sell", marker_color="#ff4d6a"))
+
+                fig_r.update_layout(
                     barmode="group",
-                    title="Analyst Recommendations",
-                    xaxis_title="Month",
-                    yaxis_title="Number of Ratings",
-                    legend_title="Rating",
-                    plot_bgcolor=bg_color,
-                    paper_bgcolor=bg_color,
-                    font=dict(color=font_color),
-                    xaxis=dict(color=font_color),
-                    yaxis=dict(color=font_color),
-                    height=400
+                    paper_bgcolor="#080d1a", plot_bgcolor="#080d1a",
+                    font=dict(family="Inter", color="#c0d4e8", size=11),
+                    xaxis=dict(color="#8aaac8", showgrid=False),
+                    yaxis=dict(color="#8aaac8", gridcolor="rgba(255,255,255,0.04)"),
+                    legend=dict(bgcolor="rgba(8,13,26,0.8)", bordercolor="rgba(255,255,255,0.1)", borderwidth=1),
+                    margin=dict(l=10, r=10, t=20, b=40),
+                    height=320,
                 )
+                st.plotly_chart(fig_r, use_container_width=True, config={"displayModeBar": False})
+            except Exception:
+                st.caption("Analyst recommendations not available for this stock.")
 
-                
-                st.plotly_chart(fig, use_container_width=True)
-
-
-                #st.markdown("### 📈 Price Performance")
-                change_1d = (df_merged["Close"].iloc[-1] / df_merged["Close"].iloc[-2] - 1) * 100
-                change_5d = (df_merged["Close"].iloc[-1] / df_merged["Close"].iloc[-6] - 1) * 100
-                change_1mo = (df_merged["Close"].iloc[-1] / df_merged["Close"].iloc[-22] - 1) * 100
-                change_ytd = (df_merged["Close"].iloc[-1] / df_merged["Close"].iloc[0] - 1) * 100
-                col1, col2, col3, col4 = st.columns(4)
-
-                col1.metric("1 Day", f"{change_1d:.2f}%")
-                col2.metric("5 Days", f"{change_5d:.2f}%")
-                col3.metric("1 Month", f"{change_1mo:.2f}%")
-                col4.metric("YTD", f"{change_ytd:.2f}%")
-
-                
-
-                #st.markdown("### 📊 Volume Analysis")
-                latest_vol = df_merged["Volume"].iloc[-1]
-                avg_vol = df_merged["Volume"].tail(21).mean()
-                st.write(f"Today's Volume: `{int(latest_vol):,}` | 21-Day Avg: `{int(avg_vol):,}`")
-                
-
-                #st.markdown("### 🧱 Support & Resistance (20-day)")
-                support = df_merged["Close"].rolling(window=20).min().iloc[-1]
-                resistance = df_merged["Close"].rolling(window=20).max().iloc[-1]
-                current_price = df_merged["Close"].iloc[-1]
-
-                st.write(f"📉 Support(20-day): ₹{support:.2f}")
-                st.write(f"📈 Resistance(20-day): ₹{resistance:.2f}")
-
-                #st.markdown("### 🤝 Correlation with NIFTY 50")
-                correlation = df_merged["Return"].corr(df_merged["NIFTY_Return"])
-                st.write(f"Correlation with NIFTY 50 (last 6 months): `{correlation:.2f}`")
-                if correlation > 0.7:
-                    st.success("✅ Highly correlated with broader market.")
-                elif correlation < 0.3:
-                    st.warning("⚠️ Moves independently of the NIFTY index.")
-
-                #st.markdown("### 📅 Earnings")
-                #st.info("🗓️ Next Earnings: Not available via yFinance. Please check official filings.")
-
-                #st.markdown("### 🧭 Most Traded Price Range")
-                price_bins = pd.cut(df_merged["Close"], bins=20)
-                most_traded = price_bins.value_counts().idxmax()
-                st.write(f"Most traded price range in last 6 months: **{most_traded}**")
-
-            else:
-                st.warning("Could not load complete data to compute View Tab insights.")
-
-        except Exception as e:
-            st.error(f"Error while generating view insights: {e}")
-    else:
-        st.info("Please select a stock to view details.")
+    except Exception as e:
+        st.error("Error loading market view: " + str(e))
