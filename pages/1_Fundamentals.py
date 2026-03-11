@@ -26,7 +26,7 @@ st.markdown("""
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 #MainMenu, footer { visibility: hidden; }
-.block-container { padding-top: 2rem; padding-bottom: 2rem; }
+.block-container { padding-top: 5rem !important; padding-bottom: 2rem; overflow: visible; }
 
 /* Reset Streamlit's injected paragraph/div sizes inside markdown blocks */
 [data-testid="stMarkdownContainer"] p,
@@ -36,7 +36,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .page-title {
     font-family: 'Syne', sans-serif;
     font-size: 2.0rem !important; font-weight: 800;
-    color: #f0f4ff; letter-spacing: -0.02em; margin-bottom: 0.2rem;
+    color: #f0f4ff; letter-spacing: -0.02em; margin-bottom: 0.2rem; margin-top: 1rem;
 }
 .page-sub {
     font-size: 0.78rem !important; color: #8aaac8;
@@ -167,8 +167,9 @@ if default_sym and not st.session_state.get("already_loaded_from_sector"):
     st.session_state["compare_symbol"] = None
 else:
     query = st.text_input(
-        "🔍  Search by symbol or company name",
-        placeholder="e.g. RELIANCE or Tata Consultancy...",
+        "search",
+        placeholder="🔍  Search by symbol or company name...",
+        label_visibility="collapsed",
     ).strip()
     if query:
         mask = (
