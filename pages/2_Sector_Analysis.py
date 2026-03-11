@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="Sector Analysis",
     page_icon="🏭",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="auto"
 )
 
 # -- CSS ---------------------------------------------------------------------
@@ -271,13 +271,10 @@ for row_start in range(0, len(industries), IND_PER_ROW):
 
 ind_sel = st.session_state["ind_sel"]
 
-# ── Row 3: Options ───────────────────────────────────────────────────────────
-st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
-opt1, opt2, _sp1, _sp2 = st.columns([2, 2, 2, 2])
-rank_by          = opt1.selectbox("Rank by", ["EPS", "ROE", "PE Ratio", "Profit Margin"], label_visibility="visible")
-interp_threshold = opt2.selectbox("Min green signals", ["5 / 5", "4 / 5", "3 / 5", "2 / 5"], index=1, label_visibility="visible")
-show_all         = False
-interp_cutoff    = {"5 / 5": 5, "4 / 5": 4, "3 / 5": 3, "2 / 5": 2}[interp_threshold]
+# ── No extra filters ────────────────────────────────────────────────────────
+rank_by       = "ROE"       # default sort for company scoring
+show_all      = False
+interp_cutoff = 3           # show companies with 3+ green signals
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -660,7 +657,7 @@ if qualified:
             st.session_state["already_loaded_from_sector"] = False
             st.switch_page("pages/1_Fundamentals.py")
 else:
-    st.info("No company meets " + interp_threshold + " green signals in this industry. Try lowering the threshold above.")
+    st.info("No company meets 3 / 5 green signals in this industry. Try a different industry.")
 
 # -- Footer ------------------------------------------------------------------
 st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:2rem 0 1rem;'>", unsafe_allow_html=True)
