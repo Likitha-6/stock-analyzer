@@ -96,8 +96,9 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     text-transform: uppercase; color: #8aaac8;
 }
 .price-chip-value {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size:0.78rem !important; font-weight: 700; color: #f0f4ff;
+    font-variant-numeric: tabular-nums;
 }
 
 .metric-card {
@@ -119,8 +120,9 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     text-transform: uppercase; color: #8aaac8; margin-bottom: 0.5rem;
 }
 .metric-value {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.1rem !important; font-weight: 700; color: #f0f4ff; line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 .metric-avg  { font-size: 0.68rem !important; color: #8aaac8; margin-top: 0.3rem; }
 .metric-signal { font-size:0.78rem !important; position: absolute; top: 1rem; right: 1rem; }
@@ -133,8 +135,9 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     margin-bottom: 1.4rem; flex-wrap: wrap;
 }
 .sig-count {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.1rem !important; font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
 .sig-label { font-size: 0.68rem !important; color: #8aaac8; }
 </style>
