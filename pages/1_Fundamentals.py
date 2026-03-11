@@ -28,17 +28,22 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
 
+/* Reset Streamlit's injected paragraph/div sizes inside markdown blocks */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] div,
+[data-testid="stMarkdownContainer"] span { font-size: inherit !important; }
+
 .page-title {
     font-family: 'Syne', sans-serif;
-    font-size: 2.0rem; font-weight: 800;
+    font-size: 2.0rem !important; font-weight: 800;
     color: #f0f4ff; letter-spacing: -0.02em; margin-bottom: 0.2rem;
 }
 .page-sub {
-    font-size: 0.78rem; color: #8aaac8;
+    font-size: 0.78rem !important; color: #8aaac8;
     margin-bottom: 1.6rem; letter-spacing: 0.05em;
 }
 .section-label {
-    font-size: 0.68rem; letter-spacing: 0.18em;
+    font-size: 0.68rem !important; letter-spacing: 0.18em;
     text-transform: uppercase; color: #8aaac8;
     border-left: 3px solid #00c882; padding-left: 0.6rem;
     margin-bottom: 0.8rem; margin-top: 1.6rem;
@@ -56,7 +61,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .hero-company {
     font-family: 'Syne', sans-serif;
-    font-size: 1.6rem; font-weight: 800;
+    font-size: 1.6rem !important; font-weight: 800;
     color: #f0f4ff; line-height: 1.1; margin-bottom: 0.3rem;
 }
 .hero-symbol {
@@ -64,7 +69,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     background: rgba(0,200,130,0.12);
     border: 1px solid rgba(0,200,130,0.3);
     border-radius: 6px; padding: 0.15rem 0.6rem;
-    font-size: 0.78rem; font-weight: 700;
+    font-size: 0.78rem !important; font-weight: 700;
     color: #00c882; letter-spacing: 0.08em; margin-right: 0.5rem;
 }
 .hero-tag {
@@ -72,7 +77,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 6px; padding: 0.15rem 0.6rem;
-    font-size: 0.68rem; color: #8aaac8;
+    font-size: 0.68rem !important; color: #8aaac8;
     margin-right: 0.4rem; margin-top: 0.4rem;
 }
 .price-strip {
@@ -87,12 +92,12 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     white-space: nowrap;
 }
 .price-chip-label {
-    font-size: 0.68rem; letter-spacing: 0.1em;
+    font-size: 0.68rem !important; letter-spacing: 0.1em;
     text-transform: uppercase; color: #8aaac8;
 }
 .price-chip-value {
     font-family: 'Syne', sans-serif;
-    font-size:0.78rem; font-weight: 700; color: #f0f4ff;
+    font-size:0.78rem !important; font-weight: 700; color: #f0f4ff;
 }
 
 .metric-card {
@@ -110,15 +115,15 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .metric-card.red::before    { background: #ff4d6a; }
 .metric-card.grey::before   { background: rgba(255,255,255,0.15); }
 .metric-name {
-    font-size: 0.68rem; letter-spacing: 0.12em;
+    font-size: 0.68rem !important; letter-spacing: 0.12em;
     text-transform: uppercase; color: #8aaac8; margin-bottom: 0.5rem;
 }
 .metric-value {
     font-family: 'Syne', sans-serif;
-    font-size: 1.1rem; font-weight: 700; color: #f0f4ff; line-height: 1;
+    font-size: 1.1rem !important; font-weight: 700; color: #f0f4ff; line-height: 1;
 }
-.metric-avg  { font-size: 0.68rem; color: #8aaac8; margin-top: 0.3rem; }
-.metric-signal { font-size:0.78rem; position: absolute; top: 1rem; right: 1rem; }
+.metric-avg  { font-size: 0.68rem !important; color: #8aaac8; margin-top: 0.3rem; }
+.metric-signal { font-size:0.78rem !important; position: absolute; top: 1rem; right: 1rem; }
 
 .signal-bar {
     background: #0b1525;
@@ -129,9 +134,9 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .sig-count {
     font-family: 'Syne', sans-serif;
-    font-size: 1.1rem; font-weight: 700;
+    font-size: 1.1rem !important; font-weight: 700;
 }
-.sig-label { font-size: 0.68rem; color: #8aaac8; }
+.sig-label { font-size: 0.68rem !important; color: #8aaac8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -234,7 +239,7 @@ with left_col:
     if desc and desc != "N/A":
         short = desc[:180] + "..." if len(desc) > 180 else desc
         st.markdown(
-            '<div style="font-size:0.78rem;color:#8aaac8;margin-top:0.8rem;line-height:1.5;">' + short + '</div>',
+            '<div style="font-size:0.78rem !important;color:#8aaac8;margin-top:0.8rem;line-height:1.5;">' + short + '</div>',
             unsafe_allow_html=True
         )
 
@@ -291,7 +296,7 @@ st.markdown(
     '<div><div class="sig-count" style="color:#f5a623;">' + str(yellow) + ' 🟡</div><div class="sig-label">Neutral</div></div>'
     '<div><div class="sig-count" style="color:#ff4d6a;">' + str(red) + ' 🔴</div><div class="sig-label">Weak</div></div>'
     '<div style="flex:1;"></div>'
-    '<div style="font-size:0.68rem;color:#8aaac8;">vs ' + str(industry) + ' industry average</div>'
+    '<div style="font-size:0.68rem !important;color:#8aaac8;">vs ' + str(industry) + ' industry average</div>'
     '</div>',
     unsafe_allow_html=True
 )
@@ -408,7 +413,7 @@ if has_rev or has_pm or has_fcf:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:2rem 0 1rem;'>", unsafe_allow_html=True)
 st.markdown(
-    "<div style='font-size:0.68rem;color:#6a88a8;'>"
+    "<div style='font-size:0.68rem !important;color:#6a88a8;'>"
     "Fundamentals sourced from Yahoo Finance · DB fallback for missing values"
     "</div>",
     unsafe_allow_html=True
