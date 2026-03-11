@@ -26,7 +26,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
 .page-title {
     font-family: 'Syne', sans-serif;
-    font-size: 2.2rem;
+    font-size: 2.0rem;
     font-weight: 800;
     color: #f0f4ff;
     letter-spacing: -0.02em;
@@ -41,8 +41,8 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .section-label {
     font-family: 'Inter', sans-serif;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: #8aaac8;
     margin-bottom: 0.7rem;
@@ -64,15 +64,15 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     background: linear-gradient(90deg, #00c882, transparent);
 }
 .stat-label {
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: #8aaac8;
     margin-bottom: 0.4rem;
 }
 .stat-value {
     font-family: 'Syne', sans-serif;
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-weight: 700;
     color: #f0f4ff;
     line-height: 1;
@@ -85,7 +85,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     border: 1px solid rgba(0,200,130,0.2);
     border-radius: 999px;
     padding: 0.3rem 0.9rem;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     color: rgba(0,200,130,0.85);
     margin-right: 0.4rem;
     margin-bottom: 0.4rem;
@@ -102,12 +102,12 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .qualify-name {
     font-family: 'Syne', sans-serif;
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: #e8f0ff;
 }
 .qualify-sym {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: #8aaac8;
     margin-top: 2px;
 }
@@ -123,7 +123,7 @@ div[data-testid="stButton"] > button {
     border-radius: 6px;
     color: #8aaac8;
     font-family: 'Inter', sans-serif;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 500;
     letter-spacing: 0.03em;
     padding: 0.2rem 0.4rem;
@@ -154,9 +154,9 @@ div[data-testid="stButton"] > button[kind="primary"] {
     margin-bottom: 1.8rem;
 }
 .filter-title {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #8aaac8;
     margin-bottom: 0.7rem;
@@ -173,7 +173,7 @@ div[data-testid="stButton"] > button[kind="primary"] {
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 8px;
     padding: 0.35rem 0.9rem;
-    font-size: 0.73rem;
+    font-size: 0.78rem;
     font-weight: 500;
     color: #c0d4e8;
     cursor: pointer;
@@ -303,7 +303,7 @@ for col, label, value, sub in [
     col.markdown(
         '<div class="stat-card">'
         '<div class="stat-label">' + label + '</div>'
-        '<div class="stat-value" style="font-size:1.3rem;">' + value + '</div>'
+        '<div class="stat-value" style="font-size:1.6rem;">' + value + '</div>'
         '<div class="stat-sub">' + sub + '</div>'
         '</div>',
         unsafe_allow_html=True
@@ -357,7 +357,7 @@ for col, label, value in [
     col.markdown(
         '<div class="stat-card">'
         '<div class="stat-label">' + label + '</div>'
-        '<div class="stat-value" style="font-size:1.4rem;">' + value + '</div>'
+        '<div class="stat-value" style="font-size:1.6rem;">' + value + '</div>'
         '</div>',
         unsafe_allow_html=True
     )
@@ -474,37 +474,36 @@ scatter_df["Company Name"] = scatter_df["Symbol"].map(name_lookup).fillna(scatte
 if len(scatter_df) >= 3:
     st.markdown('<div class="section-label">// ROE vs PE - quality vs valuation</div>', unsafe_allow_html=True)
 
-    # Colour each dot by quadrant relative to averages
-    def _dot_color(pe, roe):
-        if avg_pe is None or avg_roe_pct is None:
-            return "#8aaac8"
-        low_pe  = pe  <= avg_pe
-        high_roe = roe >= avg_roe_pct
-        if low_pe and high_roe:   return "#00c882"   # ideal: cheap + profitable
-        if low_pe and not high_roe: return "#f5a623"  # cheap but low quality
-        if not low_pe and high_roe: return "#6ec6ff"  # quality but expensive
-        return "#ff4d6a"                               # expensive + low quality
-
-    dot_colors = [_dot_color(r["PE Ratio"], r["ROE"]) for _, r in scatter_df.iterrows()]
-
-    # Shared avg thresholds for both dots and quadrant breakdown
+    # Shared avg thresholds — DB value if available, else median of visible companies
     _q_avg_pe  = avg_pe      if avg_pe      is not None else float(scatter_df["PE Ratio"].median())
     _q_avg_roe = avg_roe_pct if avg_roe_pct is not None else float(scatter_df["ROE"].median())
 
+    # Colour each dot by quadrant — same thresholds used by quadrant table below
+    def _dot_color(pe, roe):
+        if pd.isna(pe) or pd.isna(roe): return "#8aaac8"
+        low_pe   = float(pe)  <= _q_avg_pe
+        high_roe = float(roe) >= _q_avg_roe
+        if low_pe and high_roe:     return "#00c882"  # cheap + quality
+        if low_pe and not high_roe: return "#f5a623"  # cheap + low ROE
+        if not low_pe and high_roe: return "#6ec6ff"  # expensive + quality
+        return "#ff4d6a"                               # expensive + low ROE
+
+    dot_colors = [_dot_color(r["PE Ratio"], r["ROE"]) for _, r in scatter_df.iterrows()]
+
     fig_sc = go.Figure()
 
-    # Quadrant shading (only when averages are available)
-    if avg_pe is not None and avg_roe_pct is not None:
+    # Quadrant shading — always render using fallback thresholds
+    if True:
         x_min = scatter_df["PE Ratio"].min() * 0.85
         x_max = scatter_df["PE Ratio"].max() * 1.15
         y_min = scatter_df["ROE"].min() * 0.85
         y_max = scatter_df["ROE"].max() * 1.15
 
         quadrants = [
-            (x_min, avg_pe,  avg_roe_pct, y_max, "rgba(0,200,130,0.04)",  "Cheap + Quality"),
-            (avg_pe, x_max,  avg_roe_pct, y_max, "rgba(100,180,255,0.04)", "Expensive + Quality"),
-            (x_min, avg_pe,  y_min, avg_roe_pct, "rgba(245,166,35,0.04)",  "Cheap + Low ROE"),
-            (avg_pe, x_max,  y_min, avg_roe_pct, "rgba(255,77,106,0.04)",  "Expensive + Low ROE"),
+            (x_min, _q_avg_pe,  _q_avg_roe, y_max, "rgba(0,200,130,0.04)",  "Cheap + Quality"),
+            (_q_avg_pe, x_max,  _q_avg_roe, y_max, "rgba(100,180,255,0.04)", "Expensive + Quality"),
+            (x_min, _q_avg_pe,  y_min, _q_avg_roe, "rgba(245,166,35,0.04)",  "Cheap + Low ROE"),
+            (_q_avg_pe, x_max,  y_min, _q_avg_roe, "rgba(255,77,106,0.04)",  "Expensive + Low ROE"),
         ]
         for x0, x1, y0, y1, fill, _ in quadrants:
             fig_sc.add_shape(type="rect", x0=x0, x1=x1, y0=y0, y1=y1,
@@ -524,17 +523,15 @@ if len(scatter_df) >= 3:
                                   font=dict(size=9, color=lclr, family="Inter"),
                                   xanchor=xanchor, yanchor=yanchor, opacity=0.7)
 
-    # Avg lines — solid, clearly labelled
-    if avg_pe is not None:
-        fig_sc.add_vline(x=avg_pe, line_dash="dash", line_color="#00c882", line_width=1.5,
-                         annotation_text="Avg PE " + str(round(avg_pe, 1)),
-                         annotation_font=dict(color="#00c882", size=11, family="Inter"),
-                         annotation_position="top right")
-    if avg_roe_pct is not None:
-        fig_sc.add_hline(y=avg_roe_pct, line_dash="dash", line_color="#00c882", line_width=1.5,
-                         annotation_text="Avg ROE " + str(round(avg_roe_pct, 1)) + "%",
-                         annotation_font=dict(color="#00c882", size=11, family="Inter"),
-                         annotation_position="top right")
+    # Avg lines — always shown using fallback thresholds
+    fig_sc.add_vline(x=_q_avg_pe, line_dash="dash", line_color="#00c882", line_width=1.5,
+                     annotation_text="Avg PE " + str(round(_q_avg_pe, 1)),
+                     annotation_font=dict(color="#00c882", size=11, family="Inter"),
+                     annotation_position="top right")
+    fig_sc.add_hline(y=_q_avg_roe, line_dash="dash", line_color="#00c882", line_width=1.5,
+                     annotation_text="Avg ROE " + str(round(_q_avg_roe, 1)) + "%",
+                     annotation_font=dict(color="#00c882", size=11, family="Inter"),
+                     annotation_position="top right")
 
     # Scatter dots — NO inline text (avoids overlap), full info on hover
     fig_sc.add_trace(go.Scatter(
@@ -618,7 +615,7 @@ if len(scatter_df) >= 3:
             '<div style="background:' + bg + ';border:1px solid ' + border +
             ';border-radius:8px;padding:0.6rem 0.9rem;margin-bottom:0.6rem;">'
             '<div style="font-size:0.68rem;font-weight:700;color:' + clr + ';letter-spacing:0.06em;">' + qname + '</div>'
-            '<div style="font-size:0.72rem;color:#8aaac8;margin-top:2px;">' + str(len(companies)) + ' companies</div>'
+            '<div style="font-size:0.68rem;color:#8aaac8;margin-top:2px;">' + str(len(companies)) + ' companies</div>'
             '</div>',
             unsafe_allow_html=True
         )
@@ -628,14 +625,14 @@ if len(scatter_df) >= 3:
                 qcol.markdown(
                     '<div style="padding:0.45rem 0.6rem;border-left:2px solid ' + clr +
                     ';margin-bottom:0.35rem;background:#0b1525;border-radius:0 6px 6px 0;">'
-                    '<div style="font-size:0.75rem;font-weight:600;color:#e8f0ff;">' + sym + '</div>'
+                    '<div style="font-size:0.78rem;font-weight:600;color:#e8f0ff;">' + sym + '</div>'
                     '<div style="font-size:0.68rem;color:#8aaac8;margin-top:1px;">' + disp_name + '</div>'
-                    '<div style="font-size:0.65rem;color:' + clr + ';margin-top:2px;">PE ' + str(round(pe,1)) + '  ROE ' + str(round(roe,1)) + '%</div>'
+                    '<div style="font-size:0.68rem;color:' + clr + ';margin-top:2px;">PE ' + str(round(pe,1)) + '  ROE ' + str(round(roe,1)) + '%</div>'
                     '</div>',
                     unsafe_allow_html=True
                 )
         else:
-            qcol.markdown('<div style="font-size:0.72rem;color:#4a6080;padding:0.4rem;">None in this quadrant</div>', unsafe_allow_html=True)
+            qcol.markdown('<div style="font-size:0.68rem;color:#4a6080;padding:0.4rem;">None in this quadrant</div>', unsafe_allow_html=True)
 
 # -- Top performers ----------------------------------------------------------
 st.markdown('<div class="section-label">// top performers</div>', unsafe_allow_html=True)
@@ -670,7 +667,7 @@ else:
 # -- Footer ------------------------------------------------------------------
 st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:2rem 0 1rem;'>", unsafe_allow_html=True)
 st.markdown("""
-    <div style="font-family:'DM Mono',monospace;font-size:0.65rem;color: #6a88a8;">
+    <div style="font-family:'DM Mono',monospace;font-size:0.68rem;color:#6a88a8;">
         Fundamentals sourced from Yahoo Finance via yfinance · Industry averages from cached DB
     </div>
 """, unsafe_allow_html=True)
