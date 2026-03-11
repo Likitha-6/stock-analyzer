@@ -119,19 +119,32 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 div[data-testid="stButton"] > button {
     background: transparent;
-    border: 1px solid rgba(0,200,130,0.25);
-    border-radius: 8px;
-    color: #00c882;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #8aaac8;
     font-family: 'Inter', sans-serif;
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    padding: 0.3rem 0.8rem;
-    transition: all 0.2s;
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.4rem;
+    transition: all 0.15s;
     width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 0 !important;
+    line-height: 1.3;
 }
 div[data-testid="stButton"] > button:hover {
-    background: rgba(0,200,130,0.1);
-    border-color: rgba(0,200,130,0.6);
+    background: rgba(0,200,130,0.08);
+    border-color: rgba(0,200,130,0.4);
+    color: #00c882;
+}
+div[data-testid="stButton"] > button[kind="primary"] {
+    background: rgba(0,200,130,0.12);
+    border-color: #00c882;
+    color: #00c882;
+    font-weight: 700;
 }
 .filter-bar {
     background: #0b1525;
@@ -260,10 +273,10 @@ ind_sel = st.session_state["ind_sel"]
 
 # ── Row 3: Options ───────────────────────────────────────────────────────────
 st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
-opt1, opt2, opt3, opt4 = st.columns([2, 2, 2, 2])
-rank_by          = opt1.selectbox("Rank by", ["Market Cap", "EPS", "ROE", "PE Ratio", "Profit Margin"], label_visibility="visible")
+opt1, opt2, _sp1, _sp2 = st.columns([2, 2, 2, 2])
+rank_by          = opt1.selectbox("Rank by", ["EPS", "ROE", "PE Ratio", "Profit Margin"], label_visibility="visible")
 interp_threshold = opt2.selectbox("Min green signals", ["5 / 5", "4 / 5", "3 / 5", "2 / 5"], index=1, label_visibility="visible")
-show_all         = opt3.checkbox("Show all companies", value=False)
+show_all         = False
 interp_cutoff    = {"5 / 5": 5, "4 / 5": 4, "3 / 5": 3, "2 / 5": 2}[interp_threshold]
 
 st.markdown('</div>', unsafe_allow_html=True)
@@ -346,7 +359,6 @@ for col, label, value in [
 
 # -- Rank & score companies --------------------------------------------------
 sort_col_map = {
-    "Market Cap":    "MarketCap",
     "EPS":           "EPS",
     "ROE":           "ROE",
     "PE Ratio":      "PE Ratio",
@@ -620,24 +632,6 @@ if len(scatter_df) >= 3:
         else:
             qcol.markdown('<div style="font-size:0.72rem;color:#4a6080;padding:0.4rem;">None in this quadrant</div>', unsafe_allow_html=True)
 
-# -- Company table -----------------------------------------------------------
-st.markdown('<div class="section-label">// company rankings</div>', unsafe_allow_html=True)
-header_lbl = "All " + str(len(scoped_df)) + " companies" if show_all else "Top 10 by " + rank_by
-st.caption(header_lbl)
-
-display_df = pd.DataFrame(rows).drop(columns=["_sym"], errors="ignore")
-display_df.index = range(1, len(display_df) + 1)
-st.dataframe(
-    display_df,
-    use_container_width=True,
-    column_config={
-        "Score": st.column_config.ProgressColumn(
-            "Score", min_value=0, max_value=5, format="%d / 5"
-        ),
-        "MCap": st.column_config.TextColumn("Market Cap"),
-    }
-)
-
 # -- Top performers ----------------------------------------------------------
 st.markdown('<div class="section-label">// top performers</div>', unsafe_allow_html=True)
 
@@ -666,7 +660,7 @@ if qualified:
             st.session_state["already_loaded_from_sector"] = False
             st.switch_page("pages/1_Fundamentals.py")
 else:
-    st.info("No company meets " + interp_threshold + " green signals in this industry. Try lowering the threshold in the sidebar.")
+    st.info("No company meets " + interp_threshold + " green signals in this industry. Try lowering the threshold above.")
 
 # -- Footer ------------------------------------------------------------------
 st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:2rem 0 1rem;'>", unsafe_allow_html=True)
