@@ -1,7 +1,7 @@
 """
-Index Analysis Page - SIMPLIFIED VERSION
+Index Analysis Page - LINE CHART VERSION
 =========================================
-Minimal validation, maximum compatibility
+Uses line charts for better index visualization
 """
 
 import streamlit as st
@@ -90,8 +90,6 @@ INDICES = {
 selected_index = st.selectbox('Choose an index:', list(INDICES.keys()), label_visibility='collapsed')
 symbol = INDICES[selected_index]
 
-st.markdown('<div class="section-label">Loading Data...</div>', unsafe_allow_html=True)
-
 # Fetch data
 data = fetch_data(symbol)
 
@@ -172,46 +170,85 @@ else:
         low_52w = None
         pos_52w = None
     
-    # Chart
+    # CHART - Using LINE CHART (more suitable for indices)
     st.markdown('<div class="section-label">📈 Price Chart</div>', unsafe_allow_html=True)
     
     try:
         fig = go.Figure()
         
-        fig.add_trace(go.Candlestick(
+        # Main price line (thicker, more visible)
+        fig.add_trace(go.Scatter(
             x=data.index,
-            open=data['Open'],
-            high=data['High'],
-            low=data['Low'],
-            close=data['Close'],
-            name='Price',
-            increasing_line_color='#00c882',
-            decreasing_line_color='#ff4d6a'
+            y=data['Close'],
+            name='Close Price',
+            mode='lines',
+            line=dict(color='#00c882', width=2.5),
+            fill='tozeroy',
+            fillcolor='rgba(0, 200, 130, 0.1)',
+            hovertemplate='<b>%{x|%Y-%m-%d}</b><br>Price: ₹%{y:,.2f}<extra></extra>'
         ))
         
+        # EMA 20
         if ema20 is not None:
-            fig.add_trace(go.Scatter(x=data.index, y=ema20, name='EMA 20',
-                                    line=dict(color='#00c882', width=1, dash='dot')))
+            fig.add_trace(go.Scatter(
+                x=data.index,
+                y=ema20,
+                name='EMA 20',
+                mode='lines',
+                line=dict(color='#FFD700', width=1.5, dash='dash'),
+                hovertemplate='<b>EMA 20</b><br>₹%{y:,.2f}<extra></extra>'
+            ))
+        
+        # EMA 50
         if ema50 is not None:
-            fig.add_trace(go.Scatter(x=data.index, y=ema50, name='EMA 50',
-                                    line=dict(color='#ffa500', width=1, dash='dot')))
+            ema50_calc = calculate_ema(data['Close'], 50)
+            fig.add_trace(go.Scatter(
+                x=data.index,
+                y=ema50_calc,
+                name='EMA 50',
+                mode='lines',
+                line=dict(color='#FF6B9D', width=1.5, dash='dash'),
+                hovertemplate='<b>EMA 50</b><br>₹%{y:,.2f}<extra></extra>'
+            ))
         
         fig.update_layout(
-            title=f'{selected_index} - Price & EMA',
-            yaxis_title='Price',
+            title=f'<b>{selected_index}</b> - 1 Year Chart',
+            xaxis_title='Date',
+            yaxis_title='Price (₹)',
             template='plotly_dark',
             hovermode='x unified',
             height=500,
-            margin=dict(l=0, r=0, t=50, b=0),
-            paper_bgcolor='rgba(11, 21, 37, 1)',
+            margin=dict(l=50, r=50, t=80, b=50),
+            paper_bgcolor='rgba(6, 12, 26, 1)',
             plot_bgcolor='rgba(11, 21, 37, 1)',
+            font=dict(family='Inter, sans-serif', size=12, color='#ffffff'),
+            xaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(255,255,255,0.05)',
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(255,255,255,0.05)',
+            ),
+            legend=dict(
+                orientation='v',
+                yanchor='top',
+                y=0.99,
+                xanchor='left',
+                x=0.01,
+                bgcolor='rgba(11, 21, 37, 0.8)',
+                bordercolor='rgba(255,255,255,0.1)',
+                borderwidth=1
+            )
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
     except Exception as e:
         st.error(f'Chart error: {str(e)}')
     
-    # Signals
+    # SIGNALS
     st.markdown('<div class="section-label">📊 Technical Signals</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
@@ -240,7 +277,7 @@ else:
                 <div class="signal-detail">From low to high</div>
             </div>''', unsafe_allow_html=True)
     
-    # Statistics
+    # STATISTICS
     st.markdown('<div class="section-label">📊 Key Statistics</div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
@@ -277,7 +314,7 @@ else:
         except:
             pass
     
-    # Alerts
+    # ALERTS
     st.markdown('<div class="section-label">⚠️ Trading Alerts</div>', unsafe_allow_html=True)
     
     alerts = []
@@ -304,8 +341,8 @@ else:
     else:
         st.info('✅ No major alerts. Index showing neutral technical conditions.')
     
-    # Data table
-    st.markdown('<div class="section-label">📋 Recent Data</div>', unsafe_allow_html=True)
+    # DATA TABLE
+    st.markdown('<div class="section-label">📋 Recent Data (Last 10 Days)</div>', unsafe_allow_html=True)
     
     try:
         display_data = data.tail(10).copy()
