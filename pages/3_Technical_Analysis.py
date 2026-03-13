@@ -189,37 +189,121 @@ try:
 except Exception as e:
     st.error(f'Chart error: {str(e)}')
 
-# SUMMARY
-st.markdown('<div class="section-label">📊 Summary Metrics</div>', unsafe_allow_html=True)
+# ANALYSIS RECOMMENDATIONS
+st.markdown('<div class="section-label">🎯 Technical Analysis & Recommendations</div>', unsafe_allow_html=True)
 
 try:
+    # Get current values
     current = float(data['Close'].iloc[-1])
     prev = float(data['Close'].iloc[-2]) if len(data) > 1 else current
     change = current - prev
     change_pct = (change / prev * 100) if prev != 0 else 0
     
-    col1, col2, col3, col4, col5 = st.columns(5)
+    sma20 = float(data['SMA20'].iloc[-1]) if len(data['SMA20'].dropna()) > 0 else 0
+    sma50 = float(data['SMA50'].iloc[-1]) if len(data['SMA50'].dropna()) > 0 else 0
+    ema20 = float(data['EMA20'].iloc[-1]) if len(data['EMA20'].dropna()) > 0 else 0
+    ema50 = float(data['EMA50'].iloc[-1]) if len(data['EMA50'].dropna()) > 0 else 0
+    
+    rsi = float(data['RSI'].iloc[-1]) if len(data['RSI'].dropna()) > 0 else 50
+    macd = float(data['MACD'].iloc[-1]) if len(data['MACD'].dropna()) > 0 else 0
+    signal = float(data['Signal'].iloc[-1]) if len(data['Signal'].dropna()) > 0 else 0
+    
+    high_52w = float(data['Close'].tail(252).max())
+    low_52w = float(data['Close'].tail(252).min())
+    position_52w = ((current - low_52w) / (high_52w - low_52w) * 100) if (high_52w != low_52w) else 50
+    
+    # Generate signals
+    signals = []
+    
+    # 1. Moving Average Analysis
+    if sma20 > sma50:
+        signals.append(('Bullish', 'SMA20 > SMA50 (Uptrend)', '#00c882'))
+    else:
+        signals.append(('Bearish', 'SMA20 < SMA50 (Downtrend)', '#ff4d6a'))
+    
+    # 2. Price vs Moving Averages
+    if current > ema20 > ema50:
+        signals.append(('Strong Bullish', 'Price > EMA20 > EMA50', '#00c882'))
+    elif current < ema20 < ema50:
+        signals.append(('Strong Bearish', 'Price < EMA20 < EMA50', '#ff4d6a'))
+    
+    # 3. RSI Analysis
+    if rsi > 70:
+        signals.append(('Overbought', f'RSI {rsi:.0f} > 70 (Consider Selling)', '#ff4d6a'))
+    elif rsi < 30:
+        signals.append(('Oversold', f'RSI {rsi:.0f} < 30 (Consider Buying)', '#00c882'))
+    elif rsi > 60:
+        signals.append(('Strong Momentum', f'RSI {rsi:.0f} (Bullish)', '#00c882'))
+    elif rsi < 40:
+        signals.append(('Weak Momentum', f'RSI {rsi:.0f} (Bearish)', '#ff4d6a'))
+    
+    # 4. MACD Analysis
+    if macd > signal:
+        signals.append(('MACD Bullish', 'MACD > Signal Line (Momentum Up)', '#00c882'))
+    else:
+        signals.append(('MACD Bearish', 'MACD < Signal Line (Momentum Down)', '#ff4d6a'))
+    
+    # 5. Price Position
+    if position_52w > 80:
+        signals.append(('Near Resistance', f'Price at {position_52w:.0f}% of 52W (Selling Zone)', '#ff9800'))
+    elif position_52w < 20:
+        signals.append(('Near Support', f'Price at {position_52w:.0f}% of 52W (Buying Zone)', '#00c882'))
+    
+    # 6. Trend Analysis
+    if current > sma20 > sma50 and sma20 > sma50:
+        signals.append(('Uptrend', 'Price & MA are aligned upward', '#00c882'))
+    elif current < sma20 < sma50:
+        signals.append(('Downtrend', 'Price & MA are aligned downward', '#ff4d6a'))
+    
+    # Display signals
+    col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.metric('Current Price', f'₹{current:,.2f}', f'{change:+.2f}')
+        st.markdown('**📊 Signal Analysis:**')
+        for signal_type, message, color in signals[:4]:
+            st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {color};padding:0.8rem;border-radius:6px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};font-size:0.9rem;">{signal_type}</div><div style="color:#8aaac8;font-size:0.8rem;margin-top:0.3rem;">{message}</div></div>', unsafe_allow_html=True)
     
     with col2:
-        sma20 = float(data['SMA20'].iloc[-1]) if len(data['SMA20'].dropna()) > 0 else 0
-        st.metric('SMA20', f'₹{sma20:,.2f}')
+        st.markdown('**⚡ Additional Signals:**')
+        for signal_type, message, color in signals[4:]:
+            st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {color};padding:0.8rem;border-radius:6px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};font-size:0.9rem;">{signal_type}</div><div style="color:#8aaac8;font-size:0.8rem;margin-top:0.3rem;">{message}</div></div>', unsafe_allow_html=True)
+    
+    # Overall Recommendation
+    st.markdown('<div class="section-label">🎯 Overall Recommendation</div>', unsafe_allow_html=True)
+    
+    bullish_count = sum(1 for s in signals if s[0] in ['Bullish', 'Strong Bullish', 'MACD Bullish', 'Uptrend', 'Oversold', 'Near Support'])
+    bearish_count = sum(1 for s in signals if s[0] in ['Bearish', 'Strong Bearish', 'MACD Bearish', 'Downtrend', 'Overbought', 'Near Resistance'])
+    
+    if bullish_count > bearish_count:
+        recommendation = 'BUY'
+        rec_color = '#00c882'
+        rec_reason = f'{bullish_count} bullish signals vs {bearish_count} bearish signals'
+    elif bearish_count > bullish_count:
+        recommendation = 'SELL'
+        rec_color = '#ff4d6a'
+        rec_reason = f'{bearish_count} bearish signals vs {bullish_count} bullish signals'
+    else:
+        recommendation = 'HOLD'
+        rec_color = '#ffa500'
+        rec_reason = 'Mixed signals - wait for clarity'
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid {rec_color};border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Recommendation</div><div style="font-size:2rem;font-weight:800;color:{rec_color};">{recommendation}</div></div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Entry Point</div><div style="font-size:1.5rem;font-weight:700;color:#00c882;">₹{current:,.2f}</div><div style="font-size:0.8rem;color:#8aaac8;margin-top:0.5rem;">Current Price</div></div>', unsafe_allow_html=True)
     
     with col3:
-        sma50 = float(data['SMA50'].iloc[-1]) if len(data['SMA50'].dropna()) > 0 else 0
-        st.metric('SMA50', f'₹{sma50:,.2f}')
+        support = low_52w
+        resistance = high_52w
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Support/Resistance</div><div style="font-size:0.9rem;color:#00c882;margin-bottom:0.3rem;">S: ₹{support:,.0f}</div><div style="font-size:0.9rem;color:#ff4d6a;">R: ₹{resistance:,.0f}</div></div>', unsafe_allow_html=True)
     
-    with col4:
-        high_52w = float(data['Close'].tail(252).max())
-        st.metric('52W High', f'₹{high_52w:,.2f}')
-    
-    with col5:
-        rsi = float(data['RSI'].iloc[-1]) if len(data['RSI'].dropna()) > 0 else 0
-        st.metric('RSI(14)', f'{rsi:.2f}')
+    st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {rec_color};padding:1rem;border-radius:8px;margin:1rem 0;"><div style="color:#8aaac8;font-size:0.9rem;"><strong>Reason:</strong> {rec_reason}</div><div style="color:#8aaac8;font-size:0.85rem;margin-top:0.5rem;"><strong>Note:</strong> This is a technical analysis-based recommendation. Always do your own research and consult a financial advisor before trading.</div></div>', unsafe_allow_html=True)
+
 except Exception as e:
-    st.warning(f'Summary metrics error: {str(e)}')
+    st.error(f'Analysis error: {str(e)}')
 
 # RECENT DATA
 st.markdown('<div class="section-label">📋 Recent Data (Last 20 Days)</div>', unsafe_allow_html=True)
