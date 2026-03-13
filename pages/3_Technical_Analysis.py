@@ -92,102 +92,32 @@ data['MACD'] = data['EMA12'] - data['EMA26']
 data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 data['MACD_Hist'] = data['MACD'] - data['Signal']
 
-st.markdown('<div class="section-label">📊 Candlestick Chart with Indicators</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">📊 Price Chart with Moving Averages</div>', unsafe_allow_html=True)
 
 try:
-    # Create subplots: 3 rows, 1 column
-    fig = make_subplots(
-        rows=3, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        row_heights=[0.55, 0.225, 0.225],
-        subplot_titles=('Price & Moving Averages', 'RSI (14)', 'MACD')
-    )
-    
-    # Row 1: Candlestick
-    fig.add_trace(go.Candlestick(
-        x=data.index,
-        open=data['Open'],
-        high=data['High'],
-        low=data['Low'],
-        close=data['Close'],
-        name='Price',
-        increasing_line_color='#00c882',
-        increasing_fillcolor='#00c882',
-        decreasing_line_color='#ff4d6a',
-        decreasing_fillcolor='#ff4d6a'
-    ), row=1, col=1)
-    
-    # Row 1: SMA20
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['SMA20'],
-        name='SMA20',
-        line=dict(color='#FFD700', width=1.5, dash='dash'),
-        mode='lines'
-    ), row=1, col=1)
-    
-    # Row 1: SMA50
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['SMA50'],
-        name='SMA50',
-        line=dict(color='#FF6B9D', width=1.5, dash='dash'),
-        mode='lines'
-    ), row=1, col=1)
-    
-    # Row 2: RSI
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['RSI'],
-        name='RSI(14)',
-        line=dict(color='#00D9FF', width=2),
-        mode='lines'
-    ), row=2, col=1)
-    
-    # RSI levels
-    fig.add_hline(y=70, line_dash='dash', line_color='rgba(255,77,106,0.5)', row=2, col=1)
-    fig.add_hline(y=30, line_dash='dash', line_color='rgba(0,200,130,0.5)', row=2, col=1)
-    
-    # Row 3: MACD
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['MACD'],
-        name='MACD',
-        line=dict(color='#00D9FF', width=2),
-        mode='lines'
-    ), row=3, col=1)
-    
-    # Row 3: Signal Line
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['Signal'],
-        name='Signal',
-        line=dict(color='#FF6B9D', width=2),
-        mode='lines'
-    ), row=3, col=1)
-    
-    fig.update_xaxes(title_text='Date', row=3, col=1)
-    fig.update_yaxes(title_text='Price (₹)', row=1, col=1)
-    fig.update_yaxes(title_text='RSI', row=2, col=1)
-    fig.update_yaxes(title_text='MACD', row=3, col=1)
-    
-    fig.update_yaxes(range=[0, 100], row=2, col=1)
-    
-    fig.update_layout(
-        title=f'<b>{selected_stock}</b> - Technical Analysis',
-        height=900,
-        template='plotly_dark',
-        hovermode='x unified',
-        paper_bgcolor='rgba(6,12,26,1)',
-        plot_bgcolor='rgba(11,21,37,1)',
-        margin=dict(l=60, r=60, t=80, b=60),
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    # Simple Streamlit line chart - most reliable
+    chart_data = data[['Close', 'SMA20', 'SMA50']].tail(200).copy()
+    chart_data.columns = ['Close Price', 'SMA20', 'SMA50']
+    st.line_chart(chart_data, height=400)
 except Exception as e:
     st.error(f'Chart error: {str(e)}')
+
+st.markdown('<div class="section-label">📊 RSI (14) Indicator</div>', unsafe_allow_html=True)
+
+try:
+    rsi_data = data['RSI'].tail(200).copy()
+    rsi_data.name = 'RSI'
+    st.line_chart(rsi_data, height=250)
+except Exception as e:
+    st.error(f'RSI chart error: {str(e)}')
+
+st.markdown('<div class="section-label">📊 MACD Indicator</div>', unsafe_allow_html=True)
+
+try:
+    macd_data = data[['MACD', 'Signal']].tail(200).copy()
+    st.line_chart(macd_data, height=250)
+except Exception as e:
+    st.error(f'MACD chart error: {str(e)}')
 
 # ANALYSIS RECOMMENDATIONS
 st.markdown('<div class="section-label">🎯 Technical Analysis & Recommendations</div>', unsafe_allow_html=True)
