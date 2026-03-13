@@ -95,10 +95,15 @@ data['MACD_Hist'] = data['MACD'] - data['Signal']
 st.markdown('<div class="section-label">📊 Price Chart with Moving Averages</div>', unsafe_allow_html=True)
 
 try:
-    # Simple Streamlit line chart - most reliable
+    # Simple Streamlit line chart with proper scaling
     chart_data = data[['Close', 'SMA20', 'SMA50']].tail(200).copy()
     chart_data.columns = ['Close Price', 'SMA20', 'SMA50']
-    st.line_chart(chart_data, height=400)
+    
+    st.line_chart(
+        chart_data,
+        height=400,
+        use_container_width=True
+    )
 except Exception as e:
     st.error(f'Chart error: {str(e)}')
 
@@ -107,17 +112,9 @@ st.markdown('<div class="section-label">📊 RSI (14) Indicator</div>', unsafe_a
 try:
     rsi_data = data['RSI'].tail(200).copy()
     rsi_data.name = 'RSI'
-    st.line_chart(rsi_data, height=250)
+    st.line_chart(rsi_data, height=250, use_container_width=True)
 except Exception as e:
     st.error(f'RSI chart error: {str(e)}')
-
-st.markdown('<div class="section-label">📊 MACD Indicator</div>', unsafe_allow_html=True)
-
-try:
-    macd_data = data[['MACD', 'Signal']].tail(200).copy()
-    st.line_chart(macd_data, height=250)
-except Exception as e:
-    st.error(f'MACD chart error: {str(e)}')
 
 # ANALYSIS RECOMMENDATIONS
 st.markdown('<div class="section-label">🎯 Technical Analysis & Recommendations</div>', unsafe_allow_html=True)
