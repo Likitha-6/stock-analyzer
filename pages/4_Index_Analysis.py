@@ -143,7 +143,8 @@ with col1:
     st.markdown(f'<div class="signal-card"><div class="signal-title">EMA Signal</div><div style="font-size:1.2rem;font-weight:700;color:{ema_color};">{ema_signal}</div><div class="signal-detail">EMA20 {'>' if ema_signal == 'BULLISH' else '<'} EMA50</div></div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown(f'<div class="signal-card"><div class="signal-title">RSI (14)</div><div style="font-size:1.2rem;font-weight:700;color:{rsi_color};">{rsi_val:.0f if rsi_val else "N/A"}</div><div class="signal-detail">{rsi_signal}</div></div>', unsafe_allow_html=True)
+    rsi_display = f'{rsi_val:.0f}' if rsi_val else 'N/A'
+    st.markdown(f'<div class="signal-card"><div class="signal-title">RSI (14)</div><div style="font-size:1.2rem;font-weight:700;color:{rsi_color};">{rsi_display}</div><div class="signal-detail">{rsi_signal}</div></div>', unsafe_allow_html=True)
 
 with col3:
     st.markdown(f'<div class="signal-card"><div class="signal-title">MACD</div><div style="font-size:1.2rem;font-weight:700;color:{macd_color};">{macd_signal}</div><div class="signal-detail">MACD vs Signal</div></div>', unsafe_allow_html=True)
