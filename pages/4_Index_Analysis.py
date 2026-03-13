@@ -1,13 +1,8 @@
 """
-Index Analysis Page - FIXED VERSION
-====================================
-Features:
-- Live index charts (NIFTY 50, SENSEX, sector indices)
-- EMA crossover signals
-- RSI overbought/oversold detection
-- 52-week high/low positioning
-- Trading alerts
-- Comprehensive error handling
+Index Analysis Page - ULTIMATE FIXED VERSION
+==============================================
+All Pandas Series comparison errors eliminated
+Complete error handling and validation
 """
 
 import streamlit as st
@@ -16,7 +11,6 @@ import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 import logging
-from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -74,17 +68,9 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     margin-bottom: 1rem;
 }
 
-.signal-bullish {
-    border-left: 4px solid #00c882;
-}
-
-.signal-bearish {
-    border-left: 4px solid #ff4d6a;
-}
-
-.signal-neutral {
-    border-left: 4px solid #8aaac8;
-}
+.signal-bullish { border-left: 4px solid #00c882; }
+.signal-bearish { border-left: 4px solid #ff4d6a; }
+.signal-neutral { border-left: 4px solid #8aaac8; }
 
 .signal-title {
     font-size: 0.9rem;
@@ -127,35 +113,32 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     color: #00c882;
     margin-top: 0.2rem;
 }
-
-.alert-box {
-    background: rgba(0, 200, 130, 0.1);
-    border: 1px solid rgba(0, 200, 130, 0.3);
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 1rem 0;
-}
-
-.alert-title {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #00c882;
-    margin-bottom: 0.4rem;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────────────────────────
-# HELPER FUNCTIONS
+# SAFE HELPER FUNCTIONS
 # ────────────────────────────────────────────────────────────────────
+
+def safe_float(value) -> float:
+    """Safely convert value to float, return None if invalid."""
+    try:
+        if pd.isna(value):
+            return None
+        f = float(value)
+        if np.isnan(f) or np.isinf(f):
+            return None
+        return f
+    except:
+        return None
+
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_index_data(symbol: str, period: str = '1y') -> Optional[pd.DataFrame]:
-    """Fetch index historical data with error handling."""
+    """Fetch index historical data."""
     try:
         data = yf.download(symbol, period=period, progress=False)
         if data is None or len(data) == 0:
-            logger.warning(f"No data returned for {symbol}")
             return None
         return data
     except Exception as e:
@@ -164,161 +147,138 @@ def fetch_index_data(symbol: str, period: str = '1y') -> Optional[pd.DataFrame]:
 
 
 def calculate_ema(data: pd.Series, period: int = 20) -> pd.Series:
-    """Calculate Exponential Moving Average."""
+    """Calculate EMA safely."""
     try:
-        if data is None or len(data) == 0:
-            return pd.Series([np.nan] * len(data)) if data is not None else pd.Series()
+        if data is None or len(data) < period:
+            return pd.Series(dtype=float)
         return data.ewm(span=period, adjust=False).mean()
-    except Exception as e:
-        logger.error(f"Error calculating EMA: {str(e)}")
-        return pd.Series([np.nan] * len(data))
+    except:
+        return pd.Series(dtype=float)
 
 
 def calculate_rsi(data: pd.Series, period: int = 14) -> pd.Series:
-    """Calculate Relative Strength Index with error handling."""
+    """Calculate RSI safely."""
     try:
         if data is None or len(data) < period:
-            return pd.Series([np.nan] * len(data)) if data is not None else pd.Series()
+            return pd.Series(dtype=float)
         
         delta = data.diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-        
-        # Handle division by zero
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         return rsi
-    except Exception as e:
-        logger.error(f"Error calculating RSI: {str(e)}")
-        return pd.Series([np.nan] * len(data))
+    except:
+        return pd.Series(dtype=float)
 
 
-def detect_ema_crossover(data: pd.DataFrame, fast: int = 20, slow: int = 50) -> str:
-    """
-    Detect EMA crossover signals with error handling.
-    Returns: 'BULLISH' (fast > slow), 'BEARISH' (fast < slow), or 'NEUTRAL'
-    """
+def get_ema_signal(data: pd.DataFrame) -> Tuple[str, float, float]:
+    """Get EMA crossover signal safely."""
     try:
-        if data is None or len(data) < 2:
-            return 'NEUTRAL'
+        if data is None or len(data) < 50:
+            return ('NEUTRAL', 0, 0)
         
-        data_copy = data.copy()
-        data_copy['EMA_FAST'] = calculate_ema(data_copy['Close'], fast)
-        data_copy['EMA_SLOW'] = calculate_ema(data_copy['Close'], slow)
+        ema20 = calculate_ema(data['Close'], 20)
+        ema50 = calculate_ema(data['Close'], 50)
         
-        # Get last valid values, skip NaN
-        ema_fast_clean = data_copy['EMA_FAST'].dropna()
-        ema_slow_clean = data_copy['EMA_SLOW'].dropna()
+        if len(ema20) == 0 or len(ema50) == 0:
+            return ('NEUTRAL', 0, 0)
         
-        if len(ema_fast_clean) < 2 or len(ema_slow_clean) < 2:
-            return 'NEUTRAL'
+        # Get last values
+        last20 = ema20.dropna()
+        last50 = ema50.dropna()
         
-        last_fast = float(ema_fast_clean.iloc[-1])
-        last_slow = float(ema_slow_clean.iloc[-1])
-        prev_fast = float(ema_fast_clean.iloc[-2])
-        prev_slow = float(ema_slow_clean.iloc[-2])
+        if len(last20) == 0 or len(last50) == 0:
+            return ('NEUTRAL', 0, 0)
         
-        # Crossover detection
-        if prev_fast <= prev_slow and last_fast > last_slow:
-            return 'BULLISH'
-        elif prev_fast >= prev_slow and last_fast < last_slow:
-            return 'BEARISH'
-        elif last_fast > last_slow:
-            return 'BULLISH'
-        elif last_fast < last_slow:
-            return 'BEARISH'
+        val20 = safe_float(last20.iloc[-1])
+        val50 = safe_float(last50.iloc[-1])
+        
+        if val20 is None or val50 is None:
+            return ('NEUTRAL', 0, 0)
+        
+        if val20 > val50:
+            signal = 'BULLISH'
+        elif val20 < val50:
+            signal = 'BEARISH'
         else:
-            return 'NEUTRAL'
+            signal = 'NEUTRAL'
+        
+        return (signal, val20, val50)
     except Exception as e:
-        logger.error(f"Error detecting EMA crossover: {str(e)}")
-        return 'NEUTRAL'
+        logger.error(f"EMA error: {e}")
+        return ('NEUTRAL', 0, 0)
 
 
-def detect_rsi_signals(rsi: pd.Series) -> Tuple[str, float]:
-    """
-    Detect RSI overbought/oversold signals with comprehensive error handling.
-    Returns: (signal, rsi_value)
-    """
+def get_rsi_signal(data: pd.Series) -> Tuple[str, float]:
+    """Get RSI signal safely."""
     try:
-        # Handle None or empty series
-        if rsi is None or len(rsi) == 0:
+        if data is None or len(data) == 0:
             return ('NEUTRAL', 50.0)
         
-        # Get last valid RSI value, skip NaN
-        rsi_clean = rsi.dropna()
+        rsi_clean = data.dropna()
         if len(rsi_clean) == 0:
             return ('NEUTRAL', 50.0)
         
-        # Convert to Python float to avoid Pandas ambiguity errors
-        last_rsi = float(rsi_clean.iloc[-1])
-        
-        # Validate RSI is in valid range (0-100)
-        if not isinstance(last_rsi, (int, float)) or np.isnan(last_rsi):
+        val = safe_float(rsi_clean.iloc[-1])
+        if val is None:
             return ('NEUTRAL', 50.0)
         
-        # Clamp to 0-100 range just in case
-        last_rsi = max(0.0, min(100.0, last_rsi))
+        # Clamp to 0-100
+        val = max(0, min(100, val))
         
-        # Determine signal
-        if last_rsi > 70:
-            return ('OVERBOUGHT', last_rsi)
-        elif last_rsi < 30:
-            return ('OVERSOLD', last_rsi)
+        if val > 70:
+            signal = 'OVERBOUGHT'
+        elif val < 30:
+            signal = 'OVERSOLD'
         else:
-            return ('NEUTRAL', last_rsi)
+            signal = 'NEUTRAL'
+        
+        return (signal, val)
     except Exception as e:
-        logger.error(f"Error detecting RSI signals: {str(e)}")
+        logger.error(f"RSI error: {e}")
         return ('NEUTRAL', 50.0)
 
 
-def calculate_52week_position(data: pd.DataFrame) -> Dict[str, float]:
-    """Calculate 52-week high/low positioning with error handling."""
+def get_52week_position(data: pd.DataFrame) -> Dict:
+    """Get 52-week position safely."""
     try:
         if data is None or len(data) < 50:
-            return {
-                'current': 0.0,
-                'high_52w': 0.0,
-                'low_52w': 0.0,
-                'position': 50.0
-            }
+            return {'current': 0, 'high': 0, 'low': 0, 'position': 50}
         
-        last_52weeks = data.tail(252)  # ~252 trading days in a year
+        last_52w = data.tail(252)
         
-        high_52w = float(last_52weeks['Close'].max())
-        low_52w = float(last_52weeks['Close'].min())
-        current = float(data['Close'].iloc[-1])
+        high = safe_float(last_52w['Close'].max())
+        low = safe_float(last_52w['Close'].min())
+        current = safe_float(data['Close'].iloc[-1])
         
-        # Safely calculate position
-        if high_52w == low_52w:
-            position = 50.0
+        if None in [high, low, current]:
+            return {'current': 0, 'high': 0, 'low': 0, 'position': 50}
+        
+        if high == low:
+            position = 50
         else:
-            position = ((current - low_52w) / (high_52w - low_52w)) * 100
-            position = max(0.0, min(100.0, position))  # Clamp to 0-100
+            position = ((current - low) / (high - low)) * 100
+            position = max(0, min(100, position))
         
         return {
             'current': current,
-            'high_52w': high_52w,
-            'low_52w': low_52w,
+            'high': high,
+            'low': low,
             'position': position
         }
     except Exception as e:
-        logger.error(f"Error calculating 52-week position: {str(e)}")
-        return {
-            'current': 0.0,
-            'high_52w': 0.0,
-            'low_52w': 0.0,
-            'position': 50.0
-        }
+        logger.error(f"52-week error: {e}")
+        return {'current': 0, 'high': 0, 'low': 0, 'position': 50}
 
 
 # ────────────────────────────────────────────────────────────────────
-# PAGE CONTENT
+# PAGE
 # ────────────────────────────────────────────────────────────────────
 
 st.markdown('<h1 class="page-title">📊 Index Analysis</h1>', unsafe_allow_html=True)
-st.markdown('<p class="page-sub">Monitor major indices with technical signals, momentum indicators, and analysis.</p>', unsafe_allow_html=True)
+st.markdown('<p class="page-sub">Monitor major indices with technical signals and analysis.</p>', unsafe_allow_html=True)
 
-# Index Selection
 st.markdown('<div class="section-label">Select Index</div>', unsafe_allow_html=True)
 
 INDICES = {
@@ -332,227 +292,165 @@ INDICES = {
     'NIFTY Metal': '^CNXMETAL',
 }
 
-selected_index = st.selectbox(
-    'Choose an index:',
-    list(INDICES.keys()),
-    label_visibility='collapsed'
-)
-
+selected_index = st.selectbox('Choose an index:', list(INDICES.keys()), label_visibility='collapsed')
 symbol = INDICES[selected_index]
 
-# Fetch data
-st.markdown('<div class="section-label">Loading Chart Data...</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">Loading Data...</div>', unsafe_allow_html=True)
 data = fetch_index_data(symbol)
 
 if data is None or len(data) == 0:
-    st.error(f'❌ Could not fetch data for {selected_index}. Please try another index or check your internet connection.')
+    st.error(f'❌ Could not fetch data for {selected_index}. Please try another index.')
 else:
-    # ────────────────────────────────────────────────────────────────────
-    # TECHNICAL ANALYSIS
-    # ────────────────────────────────────────────────────────────────────
+    # Calculate everything safely
+    rsi_series = calculate_rsi(data['Close'])
+    ema_signal, ema20_val, ema50_val = get_ema_signal(data)
+    rsi_signal, rsi_val = get_rsi_signal(rsi_series)
+    position_52w = get_52week_position(data)
     
-    st.markdown('<div class="section-label">📈 Technical Analysis</div>', unsafe_allow_html=True)
-    
-    try:
-        # Calculate indicators
-        data_calc = data.copy()
-        rsi_val = calculate_rsi(data_calc['Close'])
-        ema_signal = detect_ema_crossover(data_calc)
-        rsi_signal, rsi_number = detect_rsi_signals(rsi_val)
-        position_52w = calculate_52week_position(data_calc)
+    # Check if we have valid data
+    if position_52w['high'] == 0:
+        st.warning('⚠️ Insufficient data. Please try another index.')
+    else:
+        st.markdown('<div class="section-label">📈 Price Chart</div>', unsafe_allow_html=True)
         
-        # Verify we have valid data
-        if position_52w['high_52w'] == 0:
-            st.warning('⚠️ Insufficient data available. Please try another index.')
+        try:
+            # Build chart
+            fig = go.Figure()
+            
+            fig.add_trace(go.Candlestick(
+                x=data.index,
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'],
+                name='Price',
+                increasing_line_color='#00c882',
+                decreasing_line_color='#ff4d6a'
+            ))
+            
+            # Add EMAs
+            ema20 = calculate_ema(data['Close'], 20)
+            ema50 = calculate_ema(data['Close'], 50)
+            
+            fig.add_trace(go.Scatter(x=data.index, y=ema20, name='EMA 20', 
+                                    line=dict(color='#00c882', width=1, dash='dot')))
+            fig.add_trace(go.Scatter(x=data.index, y=ema50, name='EMA 50',
+                                    line=dict(color='#ffa500', width=1, dash='dot')))
+            
+            fig.update_layout(
+                title=f'{selected_index} - Price & EMA',
+                yaxis_title='Price',
+                template='plotly_dark',
+                hovermode='x unified',
+                height=500,
+                margin=dict(l=0, r=0, t=50, b=0),
+                paper_bgcolor='rgba(11, 21, 37, 1)',
+                plot_bgcolor='rgba(11, 21, 37, 1)',
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f'⚠️ Error rendering chart: {str(e)}')
+        
+        # Signal cards
+        st.markdown('<div class="section-label">📊 Technical Signals</div>', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            color = '#00c882' if ema_signal == 'BULLISH' else '#ff4d6a' if ema_signal == 'BEARISH' else '#8aaac8'
+            st.markdown(f'''<div class="signal-card">
+                <div class="signal-title">EMA Signal</div>
+                <div style="font-size:1.2rem;font-weight:700;color:{color};">{ema_signal}</div>
+                <div class="signal-detail">EMA 20 {'above' if ema_signal == 'BULLISH' else 'below' if ema_signal == 'BEARISH' else 'near'} EMA 50</div>
+            </div>''', unsafe_allow_html=True)
+        
+        with col2:
+            color = '#ff4d6a' if rsi_signal == 'OVERBOUGHT' else '#00c882' if rsi_signal == 'OVERSOLD' else '#8aaac8'
+            st.markdown(f'''<div class="signal-card">
+                <div class="signal-title">RSI Status</div>
+                <div style="font-size:1.2rem;font-weight:700;color:{color};">{rsi_val:.0f}</div>
+                <div class="signal-detail">{rsi_signal}</div>
+            </div>''', unsafe_allow_html=True)
+        
+        with col3:
+            pos = position_52w['position']
+            color = '#00c882' if pos > 70 else '#ff4d6a' if pos < 30 else '#ffa500'
+            st.markdown(f'''<div class="signal-card">
+                <div class="signal-title">52-Week Position</div>
+                <div style="font-size:1.2rem;font-weight:700;color:{color};">{pos:.1f}%</div>
+                <div class="signal-detail">From low to high</div>
+            </div>''', unsafe_allow_html=True)
+        
+        # Statistics
+        st.markdown('<div class="section-label">📊 Key Statistics</div>', unsafe_allow_html=True)
+        
+        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+        
+        current = safe_float(data['Close'].iloc[-1]) or 0
+        prev = safe_float(data['Close'].iloc[-2]) if len(data) > 1 else current
+        change_pct = ((current - prev) / prev * 100) if prev != 0 else 0
+        
+        with stat_col1:
+            st.markdown(f'''<div class="stat-box">
+                <div class="stat-label">Current Price</div>
+                <div class="stat-value">₹{current:,.0f}</div>
+                <div class="stat-subtext">{'↑' if change_pct >= 0 else '↓'} {abs(change_pct):.2f}%</div>
+            </div>''', unsafe_allow_html=True)
+        
+        with stat_col2:
+            st.markdown(f'''<div class="stat-box">
+                <div class="stat-label">52-Week High</div>
+                <div class="stat-value">₹{position_52w['high']:,.0f}</div>
+            </div>''', unsafe_allow_html=True)
+        
+        with stat_col3:
+            st.markdown(f'''<div class="stat-box">
+                <div class="stat-label">52-Week Low</div>
+                <div class="stat-value">₹{position_52w['low']:,.0f}</div>
+            </div>''', unsafe_allow_html=True)
+        
+        with stat_col4:
+            avg_vol = data['Volume'].tail(20).mean() if len(data) >= 20 else 0
+            st.markdown(f'''<div class="stat-box">
+                <div class="stat-label">Avg Volume (20d)</div>
+                <div class="stat-value">{avg_vol/1e6:.1f}M</div>
+            </div>''', unsafe_allow_html=True)
+        
+        # Alerts
+        st.markdown('<div class="section-label">⚠️ Alerts</div>', unsafe_allow_html=True)
+        
+        alerts = []
+        if ema_signal == 'BULLISH':
+            alerts.append(('Bullish', 'EMA 20 above EMA 50 - uptrend', '#00c882'))
+        elif ema_signal == 'BEARISH':
+            alerts.append(('Bearish', 'EMA 20 below EMA 50 - downtrend', '#ff4d6a'))
+        
+        if rsi_signal == 'OVERBOUGHT':
+            alerts.append(('Overbought', 'RSI > 70 - consider profit booking', '#ff4d6a'))
+        elif rsi_signal == 'OVERSOLD':
+            alerts.append(('Oversold', 'RSI < 30 - potential buying', '#00c882'))
+        
+        if position_52w['position'] > 90:
+            alerts.append(('High', 'Near 52-week high', '#ff9800'))
+        elif position_52w['position'] < 10:
+            alerts.append(('Low', 'Near 52-week low', '#00c882'))
+        
+        if alerts:
+            for alert_type, msg, color in alerts:
+                st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:3px solid {color};padding:1rem;border-radius:8px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};">{alert_type}</div><div style="color:#8aaac8;font-size:0.9rem;">{msg}</div></div>', unsafe_allow_html=True)
         else:
-            # Create candlestick chart with EMAs
-            try:
-                fig = go.Figure()
-                
-                # Candlestick
-                fig.add_trace(go.Candlestick(
-                    x=data.index,
-                    open=data['Open'],
-                    high=data['High'],
-                    low=data['Low'],
-                    close=data['Close'],
-                    name='Price',
-                    increasing_line_color='#00c882',
-                    decreasing_line_color='#ff4d6a'
-                ))
-                
-                # EMA lines
-                ema20 = calculate_ema(data['Close'], 20)
-                ema50 = calculate_ema(data['Close'], 50)
-                
-                fig.add_trace(go.Scatter(
-                    x=ema20.index,
-                    y=ema20.values,
-                    name='EMA 20',
-                    line=dict(color='#00c882', width=1, dash='dot')
-                ))
-                
-                fig.add_trace(go.Scatter(
-                    x=ema50.index,
-                    y=ema50.values,
-                    name='EMA 50',
-                    line=dict(color='#ffa500', width=1, dash='dot')
-                ))
-                
-                fig.update_layout(
-                    title=f'{selected_index} - Price & EMA',
-                    yaxis_title='Price',
-                    template='plotly_dark',
-                    hovermode='x unified',
-                    height=500,
-                    margin=dict(l=0, r=0, t=50, b=0),
-                    paper_bgcolor='rgba(11, 21, 37, 1)',
-                    plot_bgcolor='rgba(11, 21, 37, 1)',
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-            except Exception as e:
-                st.error(f'⚠️ Error rendering chart: {str(e)}')
-                logger.error(f"Chart rendering error: {str(e)}")
-            
-            # Signal Cards
-            sig_col1, sig_col2, sig_col3 = st.columns(3)
-            
-            # EMA Signal
-            with sig_col1:
-                signal_class = 'signal-bullish' if ema_signal == 'BULLISH' else 'signal-bearish' if ema_signal == 'BEARISH' else 'signal-neutral'
-                signal_color = '#00c882' if ema_signal == 'BULLISH' else '#ff4d6a' if ema_signal == 'BEARISH' else '#8aaac8'
-                st.markdown(f'''<div class="signal-card {signal_class}">
-                    <div class="signal-title">EMA Crossover</div>
-                    <div style="font-size:1.2rem;font-weight:700;color:{signal_color};margin:0.5rem 0;">{ema_signal}</div>
-                    <div class="signal-detail">EMA 20 {'above' if ema_signal == 'BULLISH' else 'below' if ema_signal == 'BEARISH' else 'near'} EMA 50</div>
-                </div>''', unsafe_allow_html=True)
-            
-            # RSI Signal
-            with sig_col2:
-                rsi_color = '#ff4d6a' if rsi_signal == 'OVERBOUGHT' else '#00c882' if rsi_signal == 'OVERSOLD' else '#8aaac8'
-                signal_class = 'signal-bearish' if rsi_signal == 'OVERBOUGHT' else 'signal-bullish' if rsi_signal == 'OVERSOLD' else 'signal-neutral'
-                st.markdown(f'''<div class="signal-card {signal_class}">
-                    <div class="signal-title">RSI Status</div>
-                    <div style="font-size:1.2rem;font-weight:700;color:{rsi_color};margin:0.5rem 0;">{rsi_number:.0f}</div>
-                    <div class="signal-detail">{rsi_signal}</div>
-                </div>''', unsafe_allow_html=True)
-            
-            # 52-Week Position
-            with sig_col3:
-                pos = position_52w['position']
-                pos_color = '#00c882' if pos > 70 else '#ff4d6a' if pos < 30 else '#ffa500'
-                st.markdown(f'''<div class="signal-card">
-                    <div class="signal-title">52-Week Position</div>
-                    <div style="font-size:1.2rem;font-weight:700;color:{pos_color};margin:0.5rem 0;">{pos:.1f}%</div>
-                    <div class="signal-detail">From low to high</div>
-                </div>''', unsafe_allow_html=True)
-            
-            # ────────────────────────────────────────────────────────────────────
-            # KEY STATISTICS
-            # ────────────────────────────────────────────────────────────────────
-            
-            st.markdown('<div class="section-label">📊 Key Statistics</div>', unsafe_allow_html=True)
-            
-            stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-            
-            current_price = data['Close'].iloc[-1]
-            prev_price = data['Close'].iloc[-2] if len(data) > 1 else current_price
-            change_pct = ((current_price - prev_price) / prev_price * 100) if prev_price != 0 else 0
-            
-            with stat_col1:
-                st.markdown(f'''<div class="stat-box">
-                    <div class="stat-label">Current Price</div>
-                    <div class="stat-value">₹{current_price:,.0f}</div>
-                    <div class="stat-subtext">{'↑' if change_pct >= 0 else '↓'} {abs(change_pct):.2f}%</div>
-                </div>''', unsafe_allow_html=True)
-            
-            with stat_col2:
-                st.markdown(f'''<div class="stat-box">
-                    <div class="stat-label">52-Week High</div>
-                    <div class="stat-value">₹{position_52w['high_52w']:,.0f}</div>
-                </div>''', unsafe_allow_html=True)
-            
-            with stat_col3:
-                st.markdown(f'''<div class="stat-box">
-                    <div class="stat-label">52-Week Low</div>
-                    <div class="stat-value">₹{position_52w['low_52w']:,.0f}</div>
-                </div>''', unsafe_allow_html=True)
-            
-            with stat_col4:
-                avg_volume = data['Volume'].tail(20).mean()
-                st.markdown(f'''<div class="stat-box">
-                    <div class="stat-label">Avg Volume (20d)</div>
-                    <div class="stat-value">{avg_volume/1e6:.1f}M</div>
-                </div>''', unsafe_allow_html=True)
-            
-            # ────────────────────────────────────────────────────────────────────
-            # ALERTS
-            # ────────────────────────────────────────────────────────────────────
-            
-            st.markdown('<div class="section-label">⚠️ Trading Alerts</div>', unsafe_allow_html=True)
-            
-            alerts = []
-            
-            if ema_signal == 'BULLISH':
-                alerts.append(('Bullish', f'EMA 20 is above EMA 50 - uptrend signal', '#00c882'))
-            elif ema_signal == 'BEARISH':
-                alerts.append(('Bearish', f'EMA 20 is below EMA 50 - downtrend signal', '#ff4d6a'))
-            
-            if rsi_signal == 'OVERBOUGHT':
-                alerts.append(('Overbought', f'RSI is above 70 - consider profit booking', '#ff4d6a'))
-            elif rsi_signal == 'OVERSOLD':
-                alerts.append(('Oversold', f'RSI is below 30 - potential buying opportunity', '#00c882'))
-            
-            if position_52w['position'] > 90:
-                alerts.append(('Resistance', 'Index near 52-week high - potential selling pressure', '#ff9800'))
-            elif position_52w['position'] < 10:
-                alerts.append(('Support', 'Index near 52-week low - potential support level', '#00c882'))
-            
-            if len(alerts) == 0:
-                st.info('✅ No major alerts. Index showing neutral technical conditions.')
-            else:
-                for alert_type, message, color in alerts:
-                    st.markdown(f'''<div style="background: rgba(255,255,255,0.05); border-left: 3px solid {color}; padding: 1rem; border-radius: 8px; margin: 0.5rem 0;">
-                        <div style="font-weight: 700; color: {color}; margin-bottom: 0.3rem;">{alert_type}</div>
-                        <div style="color: #8aaac8; font-size: 0.9rem;">{message}</div>
-                    </div>''', unsafe_allow_html=True)
-            
-            # ────────────────────────────────────────────────────────────────────
-            # DATA TABLE
-            # ────────────────────────────────────────────────────────────────────
-            
-            st.markdown('<div class="section-label">📋 Recent Data</div>', unsafe_allow_html=True)
-            
-            try:
-                display_data = data.tail(10).copy()
-                display_data.index = display_data.index.strftime('%Y-%m-%d')
-                display_data = display_data.round(2)
-                
-                st.dataframe(
-                    display_data,
-                    use_container_width=True,
-                    column_config={
-                        'Open': st.column_config.NumberColumn('Open', format='₹ %.0f'),
-                        'High': st.column_config.NumberColumn('High', format='₹ %.0f'),
-                        'Low': st.column_config.NumberColumn('Low', format='₹ %.0f'),
-                        'Close': st.column_config.NumberColumn('Close', format='₹ %.0f'),
-                        'Volume': st.column_config.NumberColumn('Volume', format='%d'),
-                    }
-                )
-            except Exception as e:
-                st.error(f'⚠️ Error displaying data table: {str(e)}')
-                logger.error(f"Data table error: {str(e)}")
-    
-    except Exception as e:
-        st.error(f'⚠️ Error calculating technical indicators: {str(e)}')
-        logger.error(f"Technical analysis error: {str(e)}")
+            st.info('✅ No alerts. Neutral conditions.')
+        
+        # Data table
+        st.markdown('<div class="section-label">📋 Recent Data</div>', unsafe_allow_html=True)
+        
+        try:
+            display_data = data.tail(10).copy()
+            display_data.index = display_data.index.strftime('%Y-%m-%d')
+            st.dataframe(display_data, use_container_width=True)
+        except:
+            st.info('Could not display data table.')
 
-# ────────────────────────────────────────────────────────────────────
-# DISCLAIMER
-# ────────────────────────────────────────────────────────────────────
-
-st.markdown('''
----
-⚠️ **Disclaimer:** This analysis is for educational purposes only. Technical indicators are tools to aid decision-making, not guarantees of future price movement. Always conduct your own research and consult a financial advisor before making investment decisions.
-''')
+st.markdown('---')
+st.markdown('⚠️ **Educational purposes only.** Consult a financial advisor before trading.')
