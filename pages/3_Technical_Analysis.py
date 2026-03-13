@@ -250,69 +250,6 @@ except Exception as e:
     st.error("Error loading chart: " + str(e))
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PRICE TARGETS & RISK MANAGEMENT
-# ─────────────────────────────────────────────────────────────────────────────
-
-st.markdown('<div class="section-label">📈 Price Targets & Risk Management</div>', unsafe_allow_html=True)
-
-try:
-    df_atr = yf.Ticker(chosen_sym + ".NS").history(period='1y', interval='1d')
-    
-    if not df_atr.empty:
-        current_price = float(df_atr['Close'].iloc[-1])
-        
-        # Calculate ATR
-        tr1 = df_atr['High'] - df_atr['Low']
-        tr2 = abs(df_atr['High'] - df_atr['Close'].shift())
-        tr3 = abs(df_atr['Low'] - df_atr['Close'].shift())
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        atr = tr.rolling(14).mean().iloc[-1]
-        
-        if pd.isna(atr):
-            atr = (df_atr['High'] - df_atr['Low']).iloc[-20:].mean()
-        
-        # Calculate targets
-        stop_loss = current_price - atr
-        target_1 = current_price + atr
-        target_2 = current_price + (2 * atr)
-        target_3 = current_price + (3 * atr)
-        
-        # Risk-Reward Ratios
-        risk = current_price - stop_loss
-        rr_1 = (target_1 - current_price) / risk if risk > 0 else 0
-        rr_2 = (target_2 - current_price) / risk if risk > 0 else 0
-        rr_3 = (target_3 - current_price) / risk if risk > 0 else 0
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #ff4d6a;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Stop Loss</div><div style="font-size:1.2rem;font-weight:700;color:#ff4d6a;">₹{stop_loss:,.2f}</div><div style="font-size:0.75rem;color:#ff4d6a;margin-top:0.3rem;">Risk: ₹{risk:,.2f}</div></div>', unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #ffa500;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 1</div><div style="font-size:1.2rem;font-weight:700;color:#ffa500;">₹{target_1:,.2f}</div><div style="font-size:0.75rem;color:#ffa500;margin-top:0.3rem;">R:R {rr_1:.2f}:1</div></div>', unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #00c882;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 2</div><div style="font-size:1.2rem;font-weight:700;color:#00c882;">₹{target_2:,.2f}</div><div style="font-size:0.75rem;color:#00c882;margin-top:0.3rem;">R:R {rr_2:.2f}:1</div></div>', unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #00c882;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 3</div><div style="font-size:1.2rem;font-weight:700;color:#00c882;">₹{target_3:,.2f}</div><div style="font-size:0.75rem;color:#00c882;margin-top:0.3rem;">R:R {rr_3:.2f}:1</div></div>', unsafe_allow_html=True)
-        
-        # Explanation
-        st.markdown(f'''
-        **📊 How to Use These Targets:**
-        
-        - **Stop Loss (₹{stop_loss:,.2f}):** Place your stop-loss here to limit losses. Risk per trade: ₹{risk:,.2f}
-        - **Target 1 (₹{target_1:,.2f}):** Conservative target with 1:1 risk-reward ratio
-        - **Target 2 (₹{target_2:,.2f}):** Moderate target with 2:1 risk-reward ratio
-        - **Target 3 (₹{target_3:,.2f}):** Aggressive target with 3:1 risk-reward ratio
-        
-        **💡 Trading Strategy:** Buy at ₹{current_price:,.2f} | Risk: ₹{risk:,.2f} per share | ATR: ₹{atr:,.2f}
-        ''')
-
-except Exception as e:
-    st.warning(f'Price target calculation error: {str(e)}')
-
-# ─────────────────────────────────────────────────────────────────────────────
 # SIMPLE INSIGHTS
 # ─────────────────────────────────────────────────────────────────────────────
 
