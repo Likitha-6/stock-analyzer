@@ -298,7 +298,63 @@ try:
     with col3:
         support = low_52w
         resistance = high_52w
-        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Support/Resistance</div><div style="font-size:0.9rem;color:#00c882;margin-bottom:0.3rem;">S: ₹{support:,.0f}</div><div style="font-size:0.9rem;color:#ff4d6a;">R: ₹{resistance:,.0f}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">52W Range</div><div style="font-size:0.9rem;color:#00c882;margin-bottom:0.3rem;">H: ₹{resistance:,.0f}</div><div style="font-size:0.9rem;color:#ff4d6a;">L: ₹{support:,.0f}</div></div>', unsafe_allow_html=True)
+    
+    # ATR Calculation
+    st.markdown('<div class="section-label">📈 Price Targets & Risk Management</div>', unsafe_allow_html=True)
+    
+    # Calculate ATR
+    tr1 = data['High'] - data['Low']
+    tr2 = abs(data['High'] - data['Close'].shift())
+    tr3 = abs(data['Low'] - data['Close'].shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean().iloc[-1]
+    
+    if pd.isna(atr):
+        atr = (data['High'] - data['Low']).iloc[-20:].mean()
+    
+    # Calculate targets
+    stop_loss = current - atr
+    target_1 = current + atr
+    target_2 = current + (2 * atr)
+    target_3 = current + (3 * atr)
+    
+    # Risk-Reward Ratios
+    risk = current - stop_loss
+    rr_1 = (target_1 - current) / risk if risk > 0 else 0
+    rr_2 = (target_2 - current) / risk if risk > 0 else 0
+    rr_3 = (target_3 - current) / risk if risk > 0 else 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #ff4d6a;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Stop Loss</div><div style="font-size:1.2rem;font-weight:700;color:#ff4d6a;">₹{stop_loss:,.2f}</div><div style="font-size:0.75rem;color:#ff4d6a;margin-top:0.3rem;">Risk: ₹{risk:,.2f}</div></div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #ffa500;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 1</div><div style="font-size:1.2rem;font-weight:700;color:#ffa500;">₹{target_1:,.2f}</div><div style="font-size:0.75rem;color:#ffa500;margin-top:0.3rem;">R:R {rr_1:.2f}:1</div></div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #00c882;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 2</div><div style="font-size:1.2rem;font-weight:700;color:#00c882;">₹{target_2:,.2f}</div><div style="font-size:0.75rem;color:#00c882;margin-top:0.3rem;">R:R {rr_2:.2f}:1</div></div>', unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #00c882;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 3</div><div style="font-size:1.2rem;font-weight:700;color:#00c882;">₹{target_3:,.2f}</div><div style="font-size:0.75rem;color:#00c882;margin-top:0.3rem;">R:R {rr_3:.2f}:1</div></div>', unsafe_allow_html=True)
+    
+    # Explanation
+    st.markdown(f'''
+    **📊 How to Use These Targets:**
+    
+    - **Stop Loss (₹{stop_loss:,.2f}):** Place your stop-loss here to limit losses. Risk per trade: ₹{risk:,.2f}
+    - **Target 1 (₹{target_1:,.2f}):** Conservative target with 1:1 risk-reward ratio
+    - **Target 2 (₹{target_2:,.2f}):** Moderate target with 2:1 risk-reward ratio (better reward)
+    - **Target 3 (₹{target_3:,.2f}):** Aggressive target with 3:1 risk-reward ratio (best case)
+    
+    **💡 Trading Strategy:**
+    - Buy at: ₹{current:,.2f} (Current Price)
+    - Risk: ₹{risk:,.2f} per share
+    - Exit partial position at Target 1, 2, and 3
+    - Recommended: Use a 1:2 or 1:3 Risk-Reward ratio
+    - ATR Value (Volatility): ₹{atr:,.2f}
+    ''', unsafe_allow_html=True)
     
     st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {rec_color};padding:1rem;border-radius:8px;margin:1rem 0;"><div style="color:#8aaac8;font-size:0.9rem;"><strong>Reason:</strong> {rec_reason}</div><div style="color:#8aaac8;font-size:0.85rem;margin-top:0.5rem;"><strong>Note:</strong> This is a technical analysis-based recommendation. Always do your own research and consult a financial advisor before trading.</div></div>', unsafe_allow_html=True)
 
