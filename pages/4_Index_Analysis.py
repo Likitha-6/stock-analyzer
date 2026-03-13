@@ -1,4 +1,4 @@
- """
+"""
 Index Analysis - OHLC BAR CHART VERSION
 ========================================
 Uses OHLC bars instead of candlesticks - more reliable
