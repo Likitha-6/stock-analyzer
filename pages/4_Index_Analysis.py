@@ -1,13 +1,12 @@
 """
-Index Analysis Page - COMPLETE VERSION
-=======================================
-All indicators restored: SMA20/50, EMA20/50, RSI, MACD, 52-week
-Working line chart with all moving averages
+Index Analysis - OHLC BAR CHART VERSION
+========================================
+Uses OHLC bars instead of candlesticks - more reliable
+All indicators: SMA20/50, EMA20/50, RSI, MACD
 """
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 
@@ -19,21 +18,20 @@ st.markdown("""
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-.page-title { font-family: 'Syne', sans-serif; font-size: 2.0rem; font-weight: 800; color: #f0f4ff; letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+.page-title { font-family: 'Syne', sans-serif; font-size: 2.0rem; font-weight: 800; color: #f0f4ff; }
 .page-sub { font-size: 0.78rem; color: #8aaac8; margin-bottom: 1.6rem; }
 .section-label { font-size: 0.68rem; text-transform: uppercase; color: #8aaac8; border-left: 3px solid #00c882; padding-left: 0.6rem; margin-bottom: 0.8rem; }
-.signal-card { background: #0b1525; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+.signal-card { background: #0b1525; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; padding: 1.5rem; }
 .signal-title { font-size: 0.9rem; font-weight: 700; color: #ffffff; margin-bottom: 0.4rem; }
 .signal-detail { font-size: 0.8rem; color: #8aaac8; }
 .stat-box { background: #0b1525; border: 1px solid rgba(255,255,255,0.09); border-radius: 8px; padding: 1rem; text-align: center; }
 .stat-label { font-size: 0.65rem; color: #8aaac8; text-transform: uppercase; margin-bottom: 0.3rem; }
 .stat-value { font-size: 1.3rem; font-weight: 700; color: #00c882; }
-.stat-subtext { font-size: 0.7rem; color: #00c882; margin-top: 0.2rem; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<h1 class="page-title">📊 Index Analysis</h1>', unsafe_allow_html=True)
-st.markdown('<p class="page-sub">Monitor major indices with moving averages, RSI, MACD, and technical signals.</p>', unsafe_allow_html=True)
+st.markdown('<p class="page-sub">Monitor indices with OHLC bars, moving averages, RSI, MACD.</p>', unsafe_allow_html=True)
 
 st.markdown('<div class="section-label">Select Index</div>', unsafe_allow_html=True)
 
@@ -48,14 +46,13 @@ INDICES = {
     'NIFTY Metal': '^CNXMETAL',
 }
 
-selected_index = st.selectbox('Choose an index:', list(INDICES.keys()), label_visibility='collapsed')
+selected_index = st.selectbox('Choose:', list(INDICES.keys()), label_visibility='collapsed')
 symbol = INDICES[selected_index]
 
 @st.cache_data(ttl=3600)
 def fetch_data(sym):
     try:
-        data = yf.download(sym, period='1y', progress=False, interval='1d')
-        return data if (data is not None and len(data) > 0) else None
+        return yf.download(sym, period='1y', progress=False, interval='1d')
     except:
         return None
 
@@ -63,23 +60,21 @@ with st.spinner(f'Loading {selected_index}...'):
     data = fetch_data(symbol)
 
 if data is None or len(data) == 0:
-    st.error(f'❌ Could not fetch data for {selected_index}')
+    st.error(f'Could not fetch data for {selected_index}')
     st.stop()
 
-# Calculate ALL indicators
+# Calculate indicators
 data['SMA20'] = data['Close'].rolling(20).mean()
 data['SMA50'] = data['Close'].rolling(50).mean()
 data['EMA20'] = data['Close'].ewm(span=20, adjust=False).mean()
 data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
 
-# RSI
 delta = data['Close'].diff()
 gain = (delta.where(delta > 0, 0)).rolling(14).mean()
 loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
 rs = gain / loss
 data['RSI'] = 100 - (100 / (1 + rs))
 
-# MACD
 data['EMA12'] = data['Close'].ewm(span=12, adjust=False).mean()
 data['EMA26'] = data['Close'].ewm(span=26, adjust=False).mean()
 data['MACD'] = data['EMA12'] - data['EMA26']
@@ -109,19 +104,32 @@ high_52w = float(data['Close'].tail(252).max())
 low_52w = float(data['Close'].tail(252).min())
 pos_52w = ((current - low_52w) / (high_52w - low_52w) * 100) if (high_52w != low_52w) else 50
 
-# CHART - Using st.line_chart first to test
-st.markdown('<div class="section-label">📈 Price Chart with Moving Averages</div>', unsafe_allow_html=True)
+# CHART - OHLC BAR CHART
+st.markdown('<div class="section-label">📈 Price Chart (OHLC Bars with Moving Averages)</div>', unsafe_allow_html=True)
 
 try:
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], name='Price', line=dict(color='#00c882', width=2.5), fill='tozeroy', fillcolor='rgba(0,200,130,0.1)'))
+    
+    # OHLC Bars
+    fig.add_trace(go.Ohlc(
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close'],
+        name='OHLC',
+        increasing_line_color='#00c882',
+        decreasing_line_color='#ff4d6a'
+    ))
+    
+    # Moving averages
     fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], name='SMA20', line=dict(color='#FFD700', width=1.5, dash='dash')))
     fig.add_trace(go.Scatter(x=data.index, y=data['SMA50'], name='SMA50', line=dict(color='#FF6B9D', width=1.5, dash='dash')))
     fig.add_trace(go.Scatter(x=data.index, y=data['EMA20'], name='EMA20', line=dict(color='#00D9FF', width=1, dash='dot')))
     fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], name='EMA50', line=dict(color='#FF1493', width=1, dash='dot')))
     
     fig.update_layout(
-        title=f'{selected_index} - Technical Analysis',
+        title=f'{selected_index} - OHLC Chart with Moving Averages',
         height=500,
         template='plotly_dark',
         hovermode='x unified',
@@ -134,13 +142,13 @@ try:
 except Exception as e:
     st.error(f'Chart error: {str(e)}')
 
-# SIGNALS - ALL INDICATORS
+# SIGNALS
 st.markdown('<div class="section-label">📊 Technical Signals</div>', unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown(f'<div class="signal-card"><div class="signal-title">EMA Signal</div><div style="font-size:1.2rem;font-weight:700;color:{ema_color};">{ema_signal}</div><div class="signal-detail">EMA20 {'>' if ema_signal == 'BULLISH' else '<'} EMA50</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="signal-card"><div class="signal-title">EMA Signal</div><div style="font-size:1.2rem;font-weight:700;color:{ema_color};">{ema_signal}</div><div class="signal-detail">EMA20 vs EMA50</div></div>', unsafe_allow_html=True)
 
 with col2:
     rsi_display = f'{rsi_val:.0f}' if rsi_val else 'N/A'
@@ -151,7 +159,7 @@ with col3:
 
 with col4:
     pos_color = '#00c882' if pos_52w > 70 else '#ff4d6a' if pos_52w < 30 else '#ffa500'
-    st.markdown(f'<div class="signal-card"><div class="signal-title">52-Week Position</div><div style="font-size:1.2rem;font-weight:700;color:{pos_color};">{pos_52w:.0f}%</div><div class="signal-detail">From Low to High</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="signal-card"><div class="signal-title">52-Week Position</div><div style="font-size:1.2rem;font-weight:700;color:{pos_color};">{pos_52w:.0f}%</div></div>', unsafe_allow_html=True)
 
 # STATISTICS
 st.markdown('<div class="section-label">📊 Key Statistics</div>', unsafe_allow_html=True)
@@ -159,7 +167,7 @@ st.markdown('<div class="section-label">📊 Key Statistics</div>', unsafe_allow
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown(f'<div class="stat-box"><div class="stat-label">Current Price</div><div class="stat-value">₹{current:,.0f}</div><div class="stat-subtext">{"↑" if change_pct >= 0 else "↓"} {abs(change_pct):.2f}%</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="stat-box"><div class="stat-label">Current Price</div><div class="stat-value">₹{current:,.0f}</div><div style="font-size:0.7rem;color:#00c882;">{"↑" if change_pct >= 0 else "↓"} {abs(change_pct):.2f}%</div></div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown(f'<div class="stat-box"><div class="stat-label">52-Week High</div><div class="stat-value">₹{high_52w:,.0f}</div></div>', unsafe_allow_html=True)
@@ -182,15 +190,12 @@ if ema_signal == 'BULLISH':
     alerts.append(('Bullish', 'EMA20 above EMA50', '#00c882'))
 elif ema_signal == 'BEARISH':
     alerts.append(('Bearish', 'EMA20 below EMA50', '#ff4d6a'))
-
 if rsi_signal == 'OVERBOUGHT':
-    alerts.append(('Overbought', 'RSI > 70 - profit booking', '#ff4d6a'))
+    alerts.append(('Overbought', 'RSI > 70', '#ff4d6a'))
 elif rsi_signal == 'OVERSOLD':
-    alerts.append(('Oversold', 'RSI < 30 - buying opportunity', '#00c882'))
-
+    alerts.append(('Oversold', 'RSI < 30', '#00c882'))
 if macd_signal == 'BULLISH':
-    alerts.append(('MACD Bullish', 'MACD > Signal Line', '#00c882'))
-
+    alerts.append(('MACD Bullish', 'MACD > Signal', '#00c882'))
 if pos_52w > 90:
     alerts.append(('Resistance', 'Near 52W high', '#ff9800'))
 elif pos_52w < 10:
@@ -203,11 +208,11 @@ else:
     st.info('✅ No alerts')
 
 # DATA TABLE
-st.markdown('<div class="section-label">📋 Recent Data (Last 20 Days)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">📋 Recent Data</div>', unsafe_allow_html=True)
 
 display = data[['Open', 'High', 'Low', 'Close', 'Volume', 'SMA20', 'SMA50', 'RSI', 'MACD']].tail(20).copy()
 display.index = display.index.strftime('%Y-%m-%d')
 st.dataframe(display, use_container_width=True)
 
 st.markdown('---')
-st.markdown('⚠️ Educational purposes only.')
+st.markdown('⚠️ For educational purposes.')
