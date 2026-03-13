@@ -92,18 +92,93 @@ data['MACD'] = data['EMA12'] - data['EMA26']
 data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 data['MACD_Hist'] = data['MACD'] - data['Signal']
 
-st.markdown('<div class="section-label">📊 Price Chart with Moving Averages</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">📊 Price Chart with Support & Resistance</div>', unsafe_allow_html=True)
 
 try:
-    # Simple Streamlit line chart with proper scaling
-    chart_data = data[['Close', 'SMA20', 'SMA50']].tail(200).copy()
-    chart_data.columns = ['Close Price', 'SMA20', 'SMA50']
+    import plotly.graph_objects as go
     
-    st.line_chart(
-        chart_data,
-        height=400,
-        use_container_width=True
+    # Get last 200 days of data
+    chart_df = data.tail(200).copy()
+    
+    # Calculate support and resistance (52-week)
+    high_52w = data['Close'].tail(252).max()
+    low_52w = data['Close'].tail(252).min()
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Add candlestick-like effect with simple line
+    fig.add_trace(go.Scatter(
+        x=chart_df.index,
+        y=chart_df['Close'],
+        name='Close Price',
+        line=dict(color='#00c882', width=2),
+        fill='tozeroy',
+        fillcolor='rgba(0, 200, 130, 0.1)'
+    ))
+    
+    # Add SMA20
+    fig.add_trace(go.Scatter(
+        x=chart_df.index,
+        y=chart_df['SMA20'],
+        name='SMA20',
+        line=dict(color='#FFD700', width=1.5, dash='dash')
+    ))
+    
+    # Add SMA50
+    fig.add_trace(go.Scatter(
+        x=chart_df.index,
+        y=chart_df['SMA50'],
+        name='SMA50',
+        line=dict(color='#FF6B9D', width=1.5, dash='dash')
+    ))
+    
+    # Add resistance line (52W High)
+    fig.add_hline(
+        y=high_52w,
+        line_dash='dash',
+        line_color='#ff4d6a',
+        line_width=2,
+        annotation_text='Resistance (52W High)',
+        annotation_position='right',
+        name='Resistance'
     )
+    
+    # Add support line (52W Low)
+    fig.add_hline(
+        y=low_52w,
+        line_dash='dash',
+        line_color='#00c882',
+        line_width=2,
+        annotation_text='Support (52W Low)',
+        annotation_position='right',
+        name='Support'
+    )
+    
+    # Update layout
+    fig.update_layout(
+        title=f'{selected_stock} - Price Chart with Support & Resistance',
+        xaxis_title='Date',
+        yaxis_title='Price (₹)',
+        height=500,
+        template='plotly_dark',
+        hovermode='x unified',
+        paper_bgcolor='rgba(6,12,26,1)',
+        plot_bgcolor='rgba(11,21,37,1)',
+        margin=dict(l=60, r=150, t=80, b=60),
+        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)'),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)'),
+        legend=dict(
+            x=0.01,
+            y=0.99,
+            bgcolor='rgba(11,21,37,0.8)',
+            bordercolor='rgba(255,255,255,0.1)',
+            borderwidth=1
+        )
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
 except Exception as e:
     st.error(f'Chart error: {str(e)}')
 
