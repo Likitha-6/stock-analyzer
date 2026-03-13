@@ -100,14 +100,14 @@ try:
     # Get last 200 days of data
     chart_df = data.tail(200).copy()
     
-    # Calculate support and resistance (52-week)
-    high_52w = data['Close'].tail(252).max()
-    low_52w = data['Close'].tail(252).min()
+    # Calculate support and resistance (52-week) - use float() to convert Series to scalar
+    high_52w = float(data['Close'].tail(252).max())
+    low_52w = float(data['Close'].tail(252).min())
     
     # Create figure
     fig = go.Figure()
     
-    # Add candlestick-like effect with simple line
+    # Add price line
     fig.add_trace(go.Scatter(
         x=chart_df.index,
         y=chart_df['Close'],
@@ -139,9 +139,8 @@ try:
         line_dash='dash',
         line_color='#ff4d6a',
         line_width=2,
-        annotation_text='Resistance (52W High)',
-        annotation_position='right',
-        name='Resistance'
+        annotation_text=f'Resistance: ₹{high_52w:,.0f}',
+        annotation_position='right'
     )
     
     # Add support line (52W Low)
@@ -150,9 +149,8 @@ try:
         line_dash='dash',
         line_color='#00c882',
         line_width=2,
-        annotation_text='Support (52W Low)',
-        annotation_position='right',
-        name='Support'
+        annotation_text=f'Support: ₹{low_52w:,.0f}',
+        annotation_position='right'
     )
     
     # Update layout
