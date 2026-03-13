@@ -261,9 +261,11 @@ try:
         st.warning("Not enough historical data for insights.")
     else:
         df_i = df_i.reset_index()
+        df_i["SMA_20"]  = df_i["Close"].rolling(20).mean()
         df_i["SMA_50"]  = df_i["Close"].rolling(50).mean()
         df_i["SMA_200"] = df_i["Close"].rolling(200).mean()
         df_i["EMA_20"]  = df_i["Close"].ewm(span=20, adjust=False).mean()
+        df_i["EMA_50"]  = df_i["Close"].ewm(span=50, adjust=False).mean()
         
         # RSI
         delta = df_i["Close"].diff()
@@ -273,14 +275,32 @@ try:
         df_i["RSI"] = 100 - (100 / (1 + rs))
 
         current_price = float(df_i["Close"].iloc[-1])
+        latest_sma20  = df_i["SMA_20"].iloc[-1]
         latest_sma50  = df_i["SMA_50"].iloc[-1]
         latest_sma200 = df_i["SMA_200"].iloc[-1]
+        latest_ema20  = df_i["EMA_20"].iloc[-1]
+        latest_ema50  = df_i["EMA_50"].iloc[-1]
         latest_rsi    = df_i["RSI"].iloc[-1]
         high_52w      = df_i["High"].max()
         low_52w       = df_i["Low"].min()
+        high_20d      = df_i["High"].tail(20).max()
+        low_20d       = df_i["Low"].tail(20).min()
         vol_pct       = (df_i["Close"].tail(14).std() / current_price) * 100
+        
+        # Volume metrics
+        today_volume = float(df_i["Volume"].iloc[-1])
+        avg_volume = float(df_i["Volume"].tail(20).mean())
+        volume_ratio = today_volume / avg_volume if avg_volume > 0 else 1
+        
+        # Recent momentum (5-day change)
+        price_5d_ago = float(df_i["Close"].iloc[-5]) if len(df_i) >= 5 else current_price
+        momentum_5d = ((current_price - price_5d_ago) / price_5d_ago) * 100
+        
+        # Price position in 52W range
+        price_range_pct = ((current_price - low_52w) / (high_52w - low_52w)) * 100 if high_52w != low_52w else 50
 
         # Display key stats
+        st.markdown('<div class="section-label">// Key Levels</div>', unsafe_allow_html=True)
         kc1, kc2, kc3, kc4, kc5 = st.columns(5)
 
         def _stat(col, label, value, cls=""):
@@ -298,49 +318,148 @@ try:
         _stat(kc4, "52W High", f"₹{high_52w:.2f}")
         _stat(kc5, "52W Low", f"₹{low_52w:.2f}")
 
-        # Simple insight cards
+        # Insight cards
         def _insight(icon, text, kind="blue"):
             st.markdown(
                 f'<div class="insight-card {kind}"><div class="insight-icon">{icon}</div><div class="insight-text">{text}</div></div>',
                 unsafe_allow_html=True
             )
 
-        # Trend insight
-        if pd.notna(latest_sma50) and current_price > latest_sma50:
-            _insight("📈", f"Price (₹{current_price:.2f}) is above 50-day SMA — uptrend signal.", "green")
+        # 1. MOVING AVERAGE CROSSOVER STATUS
+        st.markdown('<div class="section-label">// Moving Averages</div>', unsafe_allow_html=True)
+        
+        sma_status = ""
+        sma_color = "blue"
+        if pd.notna(latest_sma20) and pd.notna(latest_sma50) and pd.notna(latest_sma200):
+            if latest_sma20 > latest_sma50 > latest_sma200:
+                sma_status = "✅ SMA 20 > 50 > 200 — STRONG BULLISH setup. Uptrend intact."
+                sma_color = "green"
+            elif latest_sma20 < latest_sma50 < latest_sma200:
+                sma_status = "⚠️ SMA 20 < 50 < 200 — STRONG BEARISH setup. Downtrend intact."
+                sma_color = "red"
+            elif current_price > latest_sma50 > latest_sma200:
+                sma_status = "📈 Price > SMA 50 > 200 — Uptrend with good structure."
+                sma_color = "green"
+            elif current_price < latest_sma50 < latest_sma200:
+                sma_status = "📉 Price < SMA 50 < 200 — Downtrend confirmed."
+                sma_color = "red"
+            elif latest_sma20 > latest_sma50:
+                sma_status = "📈 SMA 20 > 50 — Short-term uptrend signal."
+                sma_color = "green"
+            else:
+                sma_status = "📉 SMA 20 < 50 — Short-term downtrend signal."
+                sma_color = "red"
+        
+        if sma_status:
+            _insight("⚙️", sma_status, sma_color)
+
+        # 2. EMA 20 vs EMA 50 TREND
+        if pd.notna(latest_ema20) and pd.notna(latest_ema50):
+            if latest_ema20 > latest_ema50:
+                _insight("⚡", f"EMA 20 > EMA 50 — Short-term momentum strengthening.", "green")
+            else:
+                _insight("⚡", f"EMA 20 < EMA 50 — Short-term momentum weakening.", "red")
+
+        # 3. RSI INSIGHT
+        st.markdown('<div class="section-label">// Momentum & Signals</div>', unsafe_allow_html=True)
+        if pd.notna(latest_rsi):
+            if latest_rsi > 70:
+                _insight("⚠️", f"RSI {latest_rsi:.1f} > 70 — OVERBOUGHT. Risk of pullback.", "red")
+            elif latest_rsi < 30:
+                _insight("✅", f"RSI {latest_rsi:.1f} < 30 — OVERSOLD. Bounce potential.", "green")
+            elif latest_rsi > 60:
+                _insight("📈", f"RSI {latest_rsi:.1f} (60-70) — Strong momentum, uptrend.", "green")
+            elif latest_rsi < 40:
+                _insight("📉", f"RSI {latest_rsi:.1f} (30-40) — Weak momentum, downtrend.", "red")
+            else:
+                _insight("➡️", f"RSI {latest_rsi:.1f} (40-60) — Neutral. No extreme signal.", "blue")
+
+        # 4. VOLUME ANALYSIS
+        if volume_ratio > 1.5:
+            _insight("📊", f"Volume {volume_ratio:.2f}x average — STRONG conviction. Trend likely continues.", "green")
+        elif volume_ratio > 1.2:
+            _insight("📊", f"Volume {volume_ratio:.2f}x average — Above average. Trend has strength.", "green")
+        elif volume_ratio < 0.7:
+            _insight("📊", f"Volume {volume_ratio:.2f}x average — Weak. Move may reverse.", "yellow")
         else:
-            _insight("📉", f"Price is below 50-day SMA — downtrend signal.", "red")
+            _insight("📊", f"Volume {volume_ratio:.2f}x average — Normal. Mixed signals.", "blue")
 
-        # RSI insight
-        if latest_rsi > 70:
-            _insight("⚠️", f"RSI {latest_rsi:.1f} above 70 — overbought. Pullback possible.", "red")
-        elif latest_rsi < 30:
-            _insight("✅", f"RSI {latest_rsi:.1f} below 30 — oversold. Bounce possible.", "green")
+        # 5. RECENT MOMENTUM (5-day)
+        st.markdown('<div class="section-label">// Trend Strength</div>', unsafe_allow_html=True)
+        if momentum_5d > 5:
+            _insight("🚀", f"Last 5 days: +{momentum_5d:.2f}% — Strong upside momentum.", "green")
+        elif momentum_5d > 0:
+            _insight("📈", f"Last 5 days: +{momentum_5d:.2f}% — Mild upside momentum.", "green")
+        elif momentum_5d < -5:
+            _insight("📉", f"Last 5 days: {momentum_5d:.2f}% — Strong downside momentum.", "red")
         else:
-            _insight("➡️", f"RSI {latest_rsi:.1f} in neutral zone — no extreme momentum.", "blue")
+            _insight("📉", f"Last 5 days: {momentum_5d:.2f}% — Mild downside momentum.", "red")
 
-        # 52-week proximity
-        pct_from_high = ((high_52w - current_price) / high_52w) * 100
-        pct_from_low = ((current_price - low_52w) / low_52w) * 100
-        if pct_from_high < 5:
-            _insight("🚀", f"Price near 52W high. Resistance at ₹{high_52w:.2f}.", "yellow")
-        elif pct_from_low < 5:
-            _insight("🔻", f"Price near 52W low. Support at ₹{low_52w:.2f}.", "yellow")
+        # 6. PRICE POSITION IN 52W RANGE
+        if price_range_pct > 80:
+            _insight("🔴", f"Price at {price_range_pct:.0f}% of 52W range — Near TOP. Caution on further rallies.", "yellow")
+        elif price_range_pct > 60:
+            _insight("📈", f"Price at {price_range_pct:.0f}% of 52W range — In upper zone. Strong positioning.", "green")
+        elif price_range_pct < 20:
+            _insight("🟢", f"Price at {price_range_pct:.0f}% of 52W range — Near BOTTOM. Support zone.", "yellow")
+        elif price_range_pct < 40:
+            _insight("📉", f"Price at {price_range_pct:.0f}% of 52W range — In lower zone. Caution.", "red")
+        else:
+            _insight("⚖️", f"Price at {price_range_pct:.0f}% of 52W range — Mid-range. Balanced.", "blue")
 
-        # Volatility insight
+        # 7. SUPPORT/RESISTANCE PROXIMITY
+        dist_to_support = ((current_price - low_20d) / current_price) * 100
+        dist_to_resistance = ((high_20d - current_price) / current_price) * 100
+        
+        if dist_to_support < 3:
+            _insight("🔽", f"Only {dist_to_support:.2f}% above 20-day support at ₹{low_20d:.2f} — STRONG support zone.", "green")
+        elif dist_to_resistance < 3:
+            _insight("🔼", f"Only {dist_to_resistance:.2f}% below 20-day resistance at ₹{high_20d:.2f} — STRONG resistance zone.", "red")
+
+        # 8. BREAKOUT/BREAKDOWN DETECTION
+        st.markdown('<div class="section-label">// Breakout Analysis</div>', unsafe_allow_html=True)
+        if current_price >= high_20d * 0.98:  # Within 2% of 20-day high
+            _insight("🚀", f"Price near 20-day HIGH (₹{high_20d:.2f}) — BREAKOUT possible above ₹{high_20d:.2f}.", "green")
+        elif current_price <= low_20d * 1.02:  # Within 2% of 20-day low
+            _insight("⬇️", f"Price near 20-day LOW (₹{low_20d:.2f}) — BREAKDOWN possible below ₹{low_20d:.2f}.", "red")
+
+        # 9. CONSOLIDATION DETECTION
+        range_20d = high_20d - low_20d
+        avg_range = df_i["High"].tail(20).sub(df_i["Low"].tail(20)).mean()
+        if range_20d < avg_range * 0.6:
+            _insight("🟫", f"20-day range is {(range_20d/avg_range)*100:.0f}% of normal — CONSOLIDATION. Breakout coming.", "blue")
+
+        # 10. RSI DIVERGENCE SIGNAL
+        if len(df_i) >= 10:
+            recent_rsi = df_i["RSI"].tail(10)
+            recent_close = df_i["Close"].tail(10)
+            
+            if len(recent_rsi) >= 5:
+                # Bearish divergence: price higher but RSI lower
+                if recent_close.iloc[-1] > recent_close.iloc[-5] and recent_rsi.iloc[-1] < recent_rsi.iloc[-5]:
+                    _insight("⚠️", f"BEARISH DIVERGENCE — Price rising but RSI falling. Weakness ahead.", "red")
+                # Bullish divergence: price lower but RSI higher
+                elif recent_close.iloc[-1] < recent_close.iloc[-5] and recent_rsi.iloc[-1] > recent_rsi.iloc[-5]:
+                    _insight("✅", f"BULLISH DIVERGENCE — Price falling but RSI rising. Bounce likely.", "green")
+
+        # 11. VOLATILITY INSIGHT
+        st.markdown('<div class="section-label">// Volatility & Risk</div>', unsafe_allow_html=True)
         if vol_pct > 5:
-            _insight("🌊", f"High volatility ({vol_pct:.1f}%) — expect larger price swings.", "red")
+            _insight("🌊", f"High volatility ({vol_pct:.1f}%) — Expect large price swings. Higher risk/reward.", "red")
         elif vol_pct < 2:
-            _insight("😴", f"Low volatility ({vol_pct:.1f}%) — stable, range-bound movement.", "blue")
+            _insight("😴", f"Low volatility ({vol_pct:.1f}%) — Stable. Range-bound. Potential breakout brewing.", "blue")
         else:
-            _insight("⚖️", f"Moderate volatility ({vol_pct:.1f}%) — balanced risk/reward.", "green")
+            _insight("⚖️", f"Moderate volatility ({vol_pct:.1f}%) — Balanced risk/reward environment.", "green")
 
-        # 200-day SMA insight
+        # 12. 200-DAY LONG-TERM TREND
+        st.markdown('<div class="section-label">// Long-term Trend</div>', unsafe_allow_html=True)
         if pd.notna(latest_sma200):
             if current_price > latest_sma200:
-                _insight("💪", f"Price above 200-day SMA — long-term uptrend intact.", "green")
+                pct_above_200 = ((current_price - latest_sma200) / latest_sma200) * 100
+                _insight("💪", f"Price {pct_above_200:.2f}% ABOVE 200-day SMA — Long-term UPTREND intact. Strong foundation.", "green")
             else:
-                _insight("⚠️", f"Price below 200-day SMA — long-term downtrend.", "red")
+                pct_below_200 = ((latest_sma200 - current_price) / latest_sma200) * 100
+                _insight("⚠️", f"Price {pct_below_200:.2f}% BELOW 200-day SMA — Long-term DOWNTREND. Caution.", "red")
 
 except Exception as e:
     st.error(f"Error loading insights: {str(e)}")
