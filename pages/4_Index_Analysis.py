@@ -1,14 +1,13 @@
 """
-Index Analysis - OHLC BAR CHART VERSION
-========================================
-Uses OHLC bars instead of candlesticks - more reliable
+Index Analysis - STREAMLIT NATIVE CHART VERSION
+================================================
+Uses st.line_chart() - most reliable, zero Plotly issues
 All indicators: SMA20/50, EMA20/50, RSI, MACD
 """
 
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="Index Analysis", page_icon="📊", layout="wide", initial_sidebar_state="auto")
 
@@ -31,7 +30,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 """, unsafe_allow_html=True)
 
 st.markdown('<h1 class="page-title">📊 Index Analysis</h1>', unsafe_allow_html=True)
-st.markdown('<p class="page-sub">Monitor indices with OHLC bars, moving averages, RSI, MACD.</p>', unsafe_allow_html=True)
+st.markdown('<p class="page-sub">Monitor indices with Streamlit native charts and all indicators.</p>', unsafe_allow_html=True)
 
 st.markdown('<div class="section-label">Select Index</div>', unsafe_allow_html=True)
 
@@ -104,43 +103,11 @@ high_52w = float(data['Close'].tail(252).max())
 low_52w = float(data['Close'].tail(252).min())
 pos_52w = ((current - low_52w) / (high_52w - low_52w) * 100) if (high_52w != low_52w) else 50
 
-# CHART - OHLC BAR CHART
-st.markdown('<div class="section-label">📈 Price Chart (OHLC Bars with Moving Averages)</div>', unsafe_allow_html=True)
+# CHARTS - Streamlit Native
+st.markdown('<div class="section-label">📈 Price Chart with Moving Averages</div>', unsafe_allow_html=True)
 
-try:
-    fig = go.Figure()
-    
-    # OHLC Bars
-    fig.add_trace(go.Ohlc(
-        x=data.index,
-        open=data['Open'],
-        high=data['High'],
-        low=data['Low'],
-        close=data['Close'],
-        name='OHLC',
-        increasing_line_color='#00c882',
-        decreasing_line_color='#ff4d6a'
-    ))
-    
-    # Moving averages
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], name='SMA20', line=dict(color='#FFD700', width=1.5, dash='dash')))
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA50'], name='SMA50', line=dict(color='#FF6B9D', width=1.5, dash='dash')))
-    fig.add_trace(go.Scatter(x=data.index, y=data['EMA20'], name='EMA20', line=dict(color='#00D9FF', width=1, dash='dot')))
-    fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], name='EMA50', line=dict(color='#FF1493', width=1, dash='dot')))
-    
-    fig.update_layout(
-        title=f'{selected_index} - OHLC Chart with Moving Averages',
-        height=500,
-        template='plotly_dark',
-        hovermode='x unified',
-        paper_bgcolor='rgba(6,12,26,1)',
-        plot_bgcolor='rgba(11,21,37,1)',
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-except Exception as e:
-    st.error(f'Chart error: {str(e)}')
+chart_data = data[['Close', 'SMA20', 'SMA50', 'EMA20', 'EMA50']].copy()
+st.line_chart(chart_data, height=400)
 
 # SIGNALS
 st.markdown('<div class="section-label">📊 Technical Signals</div>', unsafe_allow_html=True)
