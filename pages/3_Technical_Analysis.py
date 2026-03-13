@@ -100,37 +100,23 @@ try:
     # Get last 200 days of data
     chart_df = data.tail(200).copy()
     
-    # Calculate support and resistance (52-week) - use float() to convert Series to scalar
+    # Calculate support and resistance (52-week) - convert to float
     high_52w = float(data['Close'].tail(252).max())
     low_52w = float(data['Close'].tail(252).min())
+    current_price = float(data['Close'].iloc[-1])
     
     # Create figure
     fig = go.Figure()
     
-    # Add price line
+    # Add price line only
     fig.add_trace(go.Scatter(
         x=chart_df.index,
         y=chart_df['Close'],
         name='Close Price',
-        line=dict(color='#00c882', width=2),
+        mode='lines',
+        line=dict(color='#00c882', width=2.5),
         fill='tozeroy',
         fillcolor='rgba(0, 200, 130, 0.1)'
-    ))
-    
-    # Add SMA20
-    fig.add_trace(go.Scatter(
-        x=chart_df.index,
-        y=chart_df['SMA20'],
-        name='SMA20',
-        line=dict(color='#FFD700', width=1.5, dash='dash')
-    ))
-    
-    # Add SMA50
-    fig.add_trace(go.Scatter(
-        x=chart_df.index,
-        y=chart_df['SMA50'],
-        name='SMA50',
-        line=dict(color='#FF6B9D', width=1.5, dash='dash')
     ))
     
     # Add resistance line (52W High)
@@ -153,23 +139,43 @@ try:
         annotation_position='right'
     )
     
-    # Update layout
+    # Add current price line
+    fig.add_hline(
+        y=current_price,
+        line_dash='solid',
+        line_color='#00D9FF',
+        line_width=1,
+        annotation_text=f'Current: ₹{current_price:,.0f}',
+        annotation_position='right'
+    )
+    
+    # Update layout for better fit
     fig.update_layout(
-        title=f'{selected_stock} - Price Chart with Support & Resistance',
+        title=f'{selected_stock} - Price with Support & Resistance',
         xaxis_title='Date',
         yaxis_title='Price (₹)',
-        height=500,
+        height=450,
         template='plotly_dark',
         hovermode='x unified',
         paper_bgcolor='rgba(6,12,26,1)',
         plot_bgcolor='rgba(11,21,37,1)',
-        margin=dict(l=60, r=150, t=80, b=60),
-        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)'),
-        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)'),
+        margin=dict(l=60, r=180, t=60, b=40),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(255,255,255,0.1)',
+            rangeslider=dict(visible=False)
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(255,255,255,0.1)',
+            autorange=True
+        ),
         legend=dict(
             x=0.01,
             y=0.99,
-            bgcolor='rgba(11,21,37,0.8)',
+            bgcolor='rgba(11,21,37,0.9)',
             bordercolor='rgba(255,255,255,0.1)',
             borderwidth=1
         )
