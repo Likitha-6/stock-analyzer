@@ -1,14 +1,13 @@
 """
-Technical Analysis Page - COMPLETE WORKING VERSION
-====================================================
-Price chart with support/resistance, RSI, recommendations
-No external dependencies on indicators.py or complex imports
+Technical Analysis Page - COMPLETE VERSION
+===========================================
+With Price Targets, Stop Loss, RSI, and all features
+Using simple Streamlit line chart that works
 """
 
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="Technical Analysis", page_icon="📈", layout="wide", initial_sidebar_state="auto")
 
@@ -85,66 +84,22 @@ loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
 rs = gain / loss
 data['RSI'] = 100 - (100 / (1 + rs))
 
-# MACD
-data['EMA12'] = data['Close'].ewm(span=12, adjust=False).mean()
-data['EMA26'] = data['Close'].ewm(span=26, adjust=False).mean()
-data['MACD'] = data['EMA12'] - data['EMA26']
-data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
-
 # ═══════════════════════════════════════════════════════════════
-# PRICE CHART WITH SUPPORT & RESISTANCE
+# PRICE CHART - SIMPLE STREAMLIT LINE CHART
 # ═══════════════════════════════════════════════════════════════
 
-st.markdown('<div class="section-label">📊 Price Chart with Support & Resistance</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">📊 Price Chart with Moving Averages</div>', unsafe_allow_html=True)
 
 try:
-    # Get last 200 days
-    chart_df = data.tail(200).copy()
+    # Simple Streamlit line chart
+    chart_data = data[['Close', 'SMA20', 'SMA50']].tail(200).copy()
+    chart_data.columns = ['Close Price', 'SMA20', 'SMA50']
     
-    # Support and resistance
-    high_52w = float(data['Close'].tail(252).max())
-    low_52w = float(data['Close'].tail(252).min())
-    current_price = float(data['Close'].iloc[-1])
-    
-    # Create chart
-    fig = go.Figure()
-    
-    # Price line
-    fig.add_trace(go.Scatter(
-        x=chart_df.index,
-        y=chart_df['Close'],
-        name='Close Price',
-        mode='lines',
-        line=dict(color='#00c882', width=2.5),
-        fill='tozeroy',
-        fillcolor='rgba(0, 200, 130, 0.1)'
-    ))
-    
-    # Resistance
-    fig.add_hline(y=high_52w, line_dash='dash', line_color='#ff4d6a', line_width=2,
-                  annotation_text=f'R: ₹{high_52w:,.0f}', annotation_position='right')
-    
-    # Support
-    fig.add_hline(y=low_52w, line_dash='dash', line_color='#00c882', line_width=2,
-                  annotation_text=f'S: ₹{low_52w:,.0f}', annotation_position='right')
-    
-    # Current price
-    fig.add_hline(y=current_price, line_dash='solid', line_color='#00D9FF', line_width=1,
-                  annotation_text=f'C: ₹{current_price:,.0f}', annotation_position='right')
-    
-    fig.update_layout(
-        title=f'{selected_stock} - Price with Support & Resistance',
-        xaxis_title='Date', yaxis_title='Price (₹)',
-        height=450, template='plotly_dark', hovermode='x unified',
-        paper_bgcolor='rgba(6,12,26,1)', plot_bgcolor='rgba(11,21,37,1)',
-        margin=dict(l=60, r=180, t=60, b=40),
-        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)'),
-        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)', autorange=True),
-        legend=dict(x=0.01, y=0.99, bgcolor='rgba(11,21,37,0.9)', bordercolor='rgba(255,255,255,0.1)', borderwidth=1)
+    st.line_chart(
+        chart_data,
+        height=400,
+        use_container_width=True
     )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
 except Exception as e:
     st.error(f'Chart error: {str(e)}')
 
@@ -155,23 +110,9 @@ except Exception as e:
 st.markdown('<div class="section-label">📊 RSI (14) Indicator</div>', unsafe_allow_html=True)
 
 try:
-    rsi_data = data['RSI'].tail(200)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=rsi_data.index, y=rsi_data.values, name='RSI', line=dict(color='#00D9FF', width=2)))
-    fig.add_hline(y=70, line_dash='dash', line_color='#ff4d6a', line_width=1)
-    fig.add_hline(y=30, line_dash='dash', line_color='#00c882', line_width=1)
-    
-    fig.update_layout(
-        title='RSI(14) - Momentum Indicator', xaxis_title='Date', yaxis_title='RSI',
-        height=300, template='plotly_dark', hovermode='x unified',
-        paper_bgcolor='rgba(6,12,26,1)', plot_bgcolor='rgba(11,21,37,1)',
-        margin=dict(l=60, r=60, t=40, b=40),
-        xaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)'),
-        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.1)', range=[0, 100])
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    rsi_data = data['RSI'].tail(200).copy()
+    rsi_data.name = 'RSI'
+    st.line_chart(rsi_data, height=250, use_container_width=True)
 except Exception as e:
     st.error(f'RSI chart error: {str(e)}')
 
@@ -182,78 +123,164 @@ except Exception as e:
 st.markdown('<div class="section-label">🎯 Technical Analysis & Recommendations</div>', unsafe_allow_html=True)
 
 try:
+    # Get current values
     current = float(data['Close'].iloc[-1])
     prev = float(data['Close'].iloc[-2]) if len(data) > 1 else current
     change = current - prev
+    change_pct = (change / prev * 100) if prev != 0 else 0
     
     sma20 = float(data['SMA20'].iloc[-1]) if len(data['SMA20'].dropna()) > 0 else 0
     sma50 = float(data['SMA50'].iloc[-1]) if len(data['SMA50'].dropna()) > 0 else 0
     ema20 = float(data['EMA20'].iloc[-1]) if len(data['EMA20'].dropna()) > 0 else 0
     ema50 = float(data['EMA50'].iloc[-1]) if len(data['EMA50'].dropna()) > 0 else 0
+    
     rsi = float(data['RSI'].iloc[-1]) if len(data['RSI'].dropna()) > 0 else 50
     
     high_52w = float(data['Close'].tail(252).max())
     low_52w = float(data['Close'].tail(252).min())
+    position_52w = ((current - low_52w) / (high_52w - low_52w) * 100) if (high_52w != low_52w) else 50
     
-    # Signals
+    # Generate signals
     signals = []
     
+    # 1. Moving Average Analysis
     if sma20 > sma50:
         signals.append(('Bullish', 'SMA20 > SMA50 (Uptrend)', '#00c882'))
     else:
         signals.append(('Bearish', 'SMA20 < SMA50 (Downtrend)', '#ff4d6a'))
     
+    # 2. Price vs Moving Averages
     if current > ema20 > ema50:
         signals.append(('Strong Bullish', 'Price > EMA20 > EMA50', '#00c882'))
     elif current < ema20 < ema50:
         signals.append(('Strong Bearish', 'Price < EMA20 < EMA50', '#ff4d6a'))
     
+    # 3. RSI Analysis
     if rsi > 70:
-        signals.append(('Overbought', f'RSI {rsi:.0f} > 70', '#ff4d6a'))
+        signals.append(('Overbought', f'RSI {rsi:.0f} > 70 (Consider Selling)', '#ff4d6a'))
     elif rsi < 30:
-        signals.append(('Oversold', f'RSI {rsi:.0f} < 30', '#00c882'))
+        signals.append(('Oversold', f'RSI {rsi:.0f} < 30 (Consider Buying)', '#00c882'))
     elif rsi > 60:
         signals.append(('Strong Momentum', f'RSI {rsi:.0f} (Bullish)', '#00c882'))
     elif rsi < 40:
         signals.append(('Weak Momentum', f'RSI {rsi:.0f} (Bearish)', '#ff4d6a'))
     
+    # 4. Price Position
+    if position_52w > 80:
+        signals.append(('Near Resistance', f'Price at {position_52w:.0f}% of 52W (Selling Zone)', '#ff9800'))
+    elif position_52w < 20:
+        signals.append(('Near Support', f'Price at {position_52w:.0f}% of 52W (Buying Zone)', '#00c882'))
+    
     # Display signals
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1])
+    
     with col1:
         st.markdown('**📊 Signal Analysis:**')
-        for signal_type, message, color in signals[:2]:
-            st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {color};padding:0.8rem;border-radius:6px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};">{signal_type}</div><div style="color:#8aaac8;font-size:0.85rem;margin-top:0.2rem;">{message}</div></div>', unsafe_allow_html=True)
+        for signal_type, message, color in signals[:3]:
+            st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {color};padding:0.8rem;border-radius:6px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};font-size:0.9rem;">{signal_type}</div><div style="color:#8aaac8;font-size:0.8rem;margin-top:0.3rem;">{message}</div></div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('**⚡ More Signals:**')
-        for signal_type, message, color in signals[2:]:
-            st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {color};padding:0.8rem;border-radius:6px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};">{signal_type}</div><div style="color:#8aaac8;font-size:0.85rem;margin-top:0.2rem;">{message}</div></div>', unsafe_allow_html=True)
+        st.markdown('**⚡ Additional Signals:**')
+        for signal_type, message, color in signals[3:]:
+            st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {color};padding:0.8rem;border-radius:6px;margin:0.5rem 0;"><div style="font-weight:700;color:{color};font-size:0.9rem;">{signal_type}</div><div style="color:#8aaac8;font-size:0.8rem;margin-top:0.3rem;">{message}</div></div>', unsafe_allow_html=True)
     
-    # Recommendation
-    bullish_count = sum(1 for s in signals if s[0] in ['Bullish', 'Strong Bullish', 'Oversold', 'Strong Momentum'])
-    bearish_count = sum(1 for s in signals if s[0] in ['Bearish', 'Strong Bearish', 'Overbought', 'Weak Momentum'])
+    # Overall Recommendation
+    st.markdown('<div class="section-label">🎯 Overall Recommendation</div>', unsafe_allow_html=True)
+    
+    bullish_count = sum(1 for s in signals if s[0] in ['Bullish', 'Strong Bullish', 'Oversold', 'Near Support', 'Strong Momentum'])
+    bearish_count = sum(1 for s in signals if s[0] in ['Bearish', 'Strong Bearish', 'Overbought', 'Near Resistance', 'Weak Momentum'])
     
     if bullish_count > bearish_count:
-        rec = 'BUY'; rec_color = '#00c882'; rec_reason = f'{bullish_count} bullish vs {bearish_count} bearish'
+        recommendation = 'BUY'
+        rec_color = '#00c882'
+        rec_reason = f'{bullish_count} bullish signals vs {bearish_count} bearish signals'
     elif bearish_count > bullish_count:
-        rec = 'SELL'; rec_color = '#ff4d6a'; rec_reason = f'{bearish_count} bearish vs {bullish_count} bullish'
+        recommendation = 'SELL'
+        rec_color = '#ff4d6a'
+        rec_reason = f'{bearish_count} bearish signals vs {bullish_count} bullish signals'
     else:
-        rec = 'HOLD'; rec_color = '#ffa500'; rec_reason = 'Mixed signals'
+        recommendation = 'HOLD'
+        rec_color = '#ffa500'
+        rec_reason = 'Mixed signals - wait for clarity'
     
     col1, col2, col3 = st.columns(3)
+    
     with col1:
-        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid {rec_color};border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;margin-bottom:0.5rem;">Recommendation</div><div style="font-size:2rem;font-weight:800;color:{rec_color};">{rec}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid {rec_color};border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Recommendation</div><div style="font-size:2rem;font-weight:800;color:{rec_color};">{recommendation}</div></div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;margin-bottom:0.5rem;">Entry</div><div style="font-size:1.5rem;font-weight:700;color:#00c882;">₹{current:,.2f}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Entry Point</div><div style="font-size:1.5rem;font-weight:700;color:#00c882;">₹{current:,.2f}</div><div style="font-size:0.8rem;color:#8aaac8;margin-top:0.5rem;">Current Price</div></div>', unsafe_allow_html=True)
     
     with col3:
-        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;margin-bottom:0.5rem;">52W Range</div><div style="font-size:0.9rem;color:#00c882;margin-bottom:0.3rem;">H: ₹{high_52w:,.0f}</div><div style="font-size:0.9rem;color:#ff4d6a;">L: ₹{low_52w:,.0f}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #8aaac8;border-radius:12px;padding:1.5rem;text-align:center;"><div style="font-size:0.75rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">52W Range</div><div style="font-size:0.9rem;color:#00c882;margin-bottom:0.3rem;">H: ₹{high_52w:,.0f}</div><div style="font-size:0.9rem;color:#ff4d6a;">L: ₹{low_52w:,.0f}</div></div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {rec_color};padding:1rem;border-radius:8px;margin:1rem 0;"><div style="color:#8aaac8;"><strong>Reason:</strong> {rec_reason}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background:rgba(255,255,255,0.05);border-left:4px solid {rec_color};padding:1rem;border-radius:8px;margin:1rem 0;"><div style="color:#8aaac8;font-size:0.9rem;"><strong>Reason:</strong> {rec_reason}</div><div style="color:#8aaac8;font-size:0.85rem;margin-top:0.5rem;"><strong>Note:</strong> This is a technical analysis-based recommendation. Always do your own research and consult a financial advisor before trading.</div></div>', unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f'Analysis error: {str(e)}')
+
+# ═══════════════════════════════════════════════════════════════
+# PRICE TARGETS & RISK MANAGEMENT
+# ═══════════════════════════════════════════════════════════════
+
+st.markdown('<div class="section-label">📈 Price Targets & Risk Management</div>', unsafe_allow_html=True)
+
+try:
+    # Calculate ATR
+    tr1 = data['High'] - data['Low']
+    tr2 = abs(data['High'] - data['Close'].shift())
+    tr3 = abs(data['Low'] - data['Close'].shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean().iloc[-1]
+    
+    if pd.isna(atr):
+        atr = (data['High'] - data['Low']).iloc[-20:].mean()
+    
+    # Calculate targets
+    stop_loss = current - atr
+    target_1 = current + atr
+    target_2 = current + (2 * atr)
+    target_3 = current + (3 * atr)
+    
+    # Risk-Reward Ratios
+    risk = current - stop_loss
+    rr_1 = (target_1 - current) / risk if risk > 0 else 0
+    rr_2 = (target_2 - current) / risk if risk > 0 else 0
+    rr_3 = (target_3 - current) / risk if risk > 0 else 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #ff4d6a;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Stop Loss</div><div style="font-size:1.2rem;font-weight:700;color:#ff4d6a;">₹{stop_loss:,.2f}</div><div style="font-size:0.75rem;color:#ff4d6a;margin-top:0.3rem;">Risk: ₹{risk:,.2f}</div></div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #ffa500;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 1</div><div style="font-size:1.2rem;font-weight:700;color:#ffa500;">₹{target_1:,.2f}</div><div style="font-size:0.75rem;color:#ffa500;margin-top:0.3rem;">R:R {rr_1:.2f}:1</div></div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #00c882;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 2</div><div style="font-size:1.2rem;font-weight:700;color:#00c882;">₹{target_2:,.2f}</div><div style="font-size:0.75rem;color:#00c882;margin-top:0.3rem;">R:R {rr_2:.2f}:1</div></div>', unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f'<div style="background:rgba(255,255,255,0.08);border:2px solid #00c882;border-radius:12px;padding:1.2rem;text-align:center;"><div style="font-size:0.7rem;color:#8aaac8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem;">Target 3</div><div style="font-size:1.2rem;font-weight:700;color:#00c882;">₹{target_3:,.2f}</div><div style="font-size:0.75rem;color:#00c882;margin-top:0.3rem;">R:R {rr_3:.2f}:1</div></div>', unsafe_allow_html=True)
+    
+    # Explanation
+    st.markdown(f'''
+    **📊 How to Use These Targets:**
+    
+    - **Stop Loss (₹{stop_loss:,.2f}):** Place your stop-loss here to limit losses. Risk per trade: ₹{risk:,.2f}
+    - **Target 1 (₹{target_1:,.2f}):** Conservative target with 1:1 risk-reward ratio
+    - **Target 2 (₹{target_2:,.2f}):** Moderate target with 2:1 risk-reward ratio (better reward)
+    - **Target 3 (₹{target_3:,.2f}):** Aggressive target with 3:1 risk-reward ratio (best case)
+    
+    **💡 Trading Strategy:**
+    - Buy at: ₹{current:,.2f} (Current Price)
+    - Risk: ₹{risk:,.2f} per share
+    - Exit partial position at Target 1, 2, and 3
+    - Recommended: Use a 1:2 or 1:3 Risk-Reward ratio
+    - ATR Value (Volatility): ₹{atr:,.2f}
+    ''', unsafe_allow_html=True)
+
+except Exception as e:
+    st.error(f'Price target error: {str(e)}')
 
 st.markdown('---')
 st.markdown('⚠️ For educational purposes only. Always consult a financial advisor.')
