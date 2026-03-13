@@ -193,30 +193,30 @@ except Exception as e:
 st.markdown('<div class="section-label">📊 Summary Metrics</div>', unsafe_allow_html=True)
 
 try:
-    current_price = float(data['Close'].iloc[-1])
-    prev_price = float(data['Close'].iloc[-2]) if len(data) > 1 else current_price
-    change = current_price - prev_price
-    change_pct = (change / prev_price * 100) if prev_price != 0 else 0
+    current = float(data['Close'].iloc[-1])
+    prev = float(data['Close'].iloc[-2]) if len(data) > 1 else current
+    change = current - prev
+    change_pct = (change / prev * 100) if prev != 0 else 0
     
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        st.metric('Current Price', f'₹{current_price:,.2f}', f'{change:+.2f} ({change_pct:+.2f}%)')
+        st.metric('Current Price', f'₹{current:,.2f}', f'{change:+.2f}')
     
     with col2:
-        high_52w = data['Close'].tail(252).max()
-        st.metric('52W High', f'₹{high_52w:,.2f}')
-    
-    with col3:
-        low_52w = data['Close'].tail(252).min()
-        st.metric('52W Low', f'₹{low_52w:,.2f}')
-    
-    with col4:
-        sma20 = data['SMA20'].iloc[-1]
+        sma20 = float(data['SMA20'].iloc[-1]) if len(data['SMA20'].dropna()) > 0 else 0
         st.metric('SMA20', f'₹{sma20:,.2f}')
     
+    with col3:
+        sma50 = float(data['SMA50'].iloc[-1]) if len(data['SMA50'].dropna()) > 0 else 0
+        st.metric('SMA50', f'₹{sma50:,.2f}')
+    
+    with col4:
+        high_52w = float(data['Close'].tail(252).max())
+        st.metric('52W High', f'₹{high_52w:,.2f}')
+    
     with col5:
-        rsi = data['RSI'].iloc[-1]
+        rsi = float(data['RSI'].iloc[-1]) if len(data['RSI'].dropna()) > 0 else 0
         st.metric('RSI(14)', f'{rsi:.2f}')
 except Exception as e:
     st.warning(f'Summary metrics error: {str(e)}')
