@@ -305,16 +305,5 @@ try:
 except Exception as e:
     st.error(f'Analysis error: {str(e)}')
 
-# RECENT DATA
-st.markdown('<div class="section-label">📋 Recent Data (Last 20 Days)</div>', unsafe_allow_html=True)
-
-try:
-    display_data = data[['Open', 'High', 'Low', 'Close', 'Volume', 'SMA20', 'SMA50', 'RSI', 'MACD']].tail(20).copy()
-    display_data.index = display_data.index.strftime('%Y-%m-%d')
-    display_data = display_data.round(2)
-    st.dataframe(display_data, use_container_width=True)
-except Exception as e:
-    st.warning(f'Data table error: {str(e)}')
-
 st.markdown('---')
 st.markdown('⚠️ For educational purposes only. Always consult a financial advisor.')
