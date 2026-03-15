@@ -267,6 +267,8 @@ try:
         latest_rsi    = df_i["RSI"].iloc[-1]
         high_52w      = df_i["High"].max()
         low_52w       = df_i["Low"].min()
+        high_1w       = df_i["High"].tail(5).max()
+        low_1w        = df_i["Low"].tail(5).min()
         high_20d      = df_i["High"].tail(20).max()
         low_20d       = df_i["Low"].tail(20).min()
         vol_pct       = (df_i["Close"].tail(14).std() / current_price) * 100
@@ -285,7 +287,7 @@ try:
 
         # Display key stats
         st.markdown('<div class="section-label">// Key Levels</div>', unsafe_allow_html=True)
-        kc1, kc2, kc3, kc4, kc5 = st.columns(5)
+        kc1, kc2, kc3, kc4, kc5, kc6 = st.columns(6)
 
         def _stat(col, label, value, cls=""):
             col.markdown(
@@ -297,10 +299,11 @@ try:
             )
 
         _stat(kc1, "Current", f"{current_price:,.0f}")
-        _stat(kc2, "SMA 50", f"{latest_sma50:,.0f}" if pd.notna(latest_sma50) else "N/A")
-        _stat(kc3, "RSI (14)", f"{latest_rsi:.1f}" if pd.notna(latest_rsi) else "N/A")
-        _stat(kc4, "52W High", f"{high_52w:,.0f}")
-        _stat(kc5, "52W Low", f"{low_52w:,.0f}")
+        _stat(kc2, "1W High", f"{high_1w:,.0f}")
+        _stat(kc3, "1W Low", f"{low_1w:,.0f}")
+        _stat(kc4, "SMA 50", f"{latest_sma50:,.0f}" if pd.notna(latest_sma50) else "N/A")
+        _stat(kc5, "RSI (14)", f"{latest_rsi:.1f}" if pd.notna(latest_rsi) else "N/A")
+        _stat(kc6, "52W High", f"{high_52w:,.0f}")
 
         # Insight cards
         def _insight(icon, text, kind="blue"):
