@@ -112,7 +112,7 @@ chosen_symbol = index_mapping[chosen_index_name]
 st.markdown('<div class="ctrl-bar">', unsafe_allow_html=True)
 cc1, cc2, cc3 = st.columns([2, 2, 3])
 
-interval_mapping = {"5 min": "5m", "15 min": "15m", "1 hour": "60m", "1 day": "1d"}
+interval_mapping = {"5 min": "5m", "15 min": "15m", "1 hour": "60m", "1 day": "1d", "1 week": "1wk"}
 label    = cc1.selectbox("Interval", list(interval_mapping.keys()), index=3, label_visibility="visible")
 interval = interval_mapping[label]
 
@@ -128,7 +128,7 @@ if "EMA" in all_indicators:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-period = "60d" if interval == "1d" else "5d" if interval == "60m" else "2d"
+period = "60d" if interval == "1d" else "1y" if interval == "1wk" else "5d" if interval == "60m" else "2d"
 
 if interval != "1d":
     if "candle_days" not in st.session_state:
