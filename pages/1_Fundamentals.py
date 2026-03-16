@@ -160,35 +160,39 @@ if "Description" not in master_df.columns:
 # ── Search bar ────────────────────────────────────────────────────────────────
 chosen_sym = None
 
-# Check if coming from Sector Analysis
-if st.session_state.get("compare_symbol"):
-    chosen_sym = st.session_state.get("compare_symbol")
-    st.session_state["compare_symbol"] = None  # Clear after use
-# Otherwise, check if already loaded in this session
-elif st.session_state.get("fundamentals_stock"):
-    chosen_sym = st.session_state.get("fundamentals_stock")
-else:
-    query = st.text_input(
-        "search",
-        placeholder="🔍  Search by symbol or company name...",
-        label_visibility="collapsed",
-    ).strip()
-    if query:
-        mask = (
-            name_df["Symbol"].str.contains(query, case=False, na=False) |
-            name_df["Company Name"].str.contains(query, case=False, na=False)
-        )
-        matches = name_df[mask]
-        if matches.empty:
-            st.warning("No match found.")
-        else:
-            opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
-            sel  = st.selectbox("Select company", opts.tolist(), label_visibility="collapsed")
-            chosen_sym = sel.split(" – ")[0]
+# Get stored stock or incoming stock from sector analysis
+stored_sym = st.session_state.get("fundamentals_stock")
+compare_sym = st.session_state.get("compare_symbol")
 
-# Save to session state to persist across reruns
-if chosen_sym:
-    st.session_state["fundamentals_stock"] = chosen_sym
+# Priority: incoming > stored
+if compare_sym:
+    chosen_sym = compare_sym
+    st.session_state["fundamentals_stock"] = compare_sym
+    st.session_state["compare_symbol"] = None
+elif stored_sym:
+    chosen_sym = stored_sym
+
+# Always show search bar with instruction to change
+query = st.text_input(
+    "search",
+    placeholder="🔍  Search by symbol or company name (or leave empty to keep current)...",
+    label_visibility="collapsed",
+).strip()
+
+if query:
+    # User entered new search
+    mask = (
+        name_df["Symbol"].str.contains(query, case=False, na=False) |
+        name_df["Company Name"].str.contains(query, case=False, na=False)
+    )
+    matches = name_df[mask]
+    if matches.empty:
+        st.warning("No match found.")
+    else:
+        opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
+        sel  = st.selectbox("Select company", opts.tolist(), label_visibility="collapsed")
+        chosen_sym = sel.split(" – ")[0]
+        st.session_state["fundamentals_stock"] = chosen_sym
 
 if not chosen_sym:
     st.stop()
