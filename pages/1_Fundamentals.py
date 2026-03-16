@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
+import plotly.graph_objects as go
 
 from common.sql import load_master
 from common.data import load_name_lookup
@@ -481,9 +482,144 @@ if st.session_state.get("comparison_stocks"):
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.caption("🟢 Green = Best value | 🔴 Red = Worst value")
+        
+        # ─────────────────────────────────────────────────────────────────────────
+        # SIDE-BY-SIDE PRICE CHARTS
+        # ─────────────────────────────────────────────────────────────────────────
+        
+        st.markdown('<div class="section-label">// price history comparison</div>', unsafe_allow_html=True)
+        
+        try:
+            # Fetch price data for all stocks
+            price_data_all = {}
+            
+            for sym in comparison_stocks_list:
+                try:
+                    hist = yf.Ticker(sym + ".NS").history("1y", auto_adjust=True)
+                    if not hist.empty:
+                        price_data_all[sym] = hist["Close"]
+                except:
+                    pass
+            
+            if price_data_all:
+                # Create subplots for each stock
+                num_stocks = len(price_data_all)
+                cols_per_row = 2
+                num_rows = (num_stocks + 1) // 2
+                
+                chart_cols = st.columns(cols_per_row)
+                
+                for idx, (sym, prices) in enumerate(price_data_all.items()):
+                    with chart_cols[idx % cols_per_row]:
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Scatter(
+                            x=prices.index,
+                            y=prices.values,
+                            mode='lines',
+                            name=sym,
+                            line=dict(color='#00c882', width=2),
+                            fill='tozeroy',
+                            fillcolor='rgba(0,200,130,0.1)'
+                        ))
+                        
+                        # Add min/max lines
+                        min_price = prices.min()
+                        max_price = prices.max()
+                        
+                        fig.add_hline(
+                            y=min_price, 
+                            line_dash="dash", 
+                            line_color="#ff4d6a",
+                            annotation=dict(text=f"Low: ₹{min_price:.0f}", font=dict(color="#ff4d6a", size=9))
+                        )
+                        fig.add_hline(
+                            y=max_price,
+                            line_dash="dash",
+                            line_color="#00c882",
+                            annotation=dict(text=f"High: ₹{max_price:.0f}", font=dict(color="#00c882", size=9))
+                        )
+                        
+                        fig.update_layout(
+                            title=f"<b>{sym}</b> - 1 Year Price",
+                            paper_bgcolor="#080d1a",
+                            plot_bgcolor="#080d1a",
+                            font=dict(family="Inter", color="#c0d4e8", size=10),
+                            xaxis=dict(
+                                showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                                color="#8aaac8"
+                            ),
+                            yaxis=dict(
+                                showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                                color="#8aaac8"
+                            ),
+                            margin=dict(l=10, r=10, t=40, b=30),
+                            height=350,
+                            showlegend=False,
+                            hovermode='x'
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        
+        except Exception as e:
+            st.warning(f"Could not load price charts: {str(e)}")
+        
+        # ─────────────────────────────────────────────────────────────────────────
+        # OVERLAY COMPARISON CHART
+        # ─────────────────────────────────────────────────────────────────────────
+        
+        st.markdown('<div class="section-label">// normalized performance overlay</div>', unsafe_allow_html=True)
+        
+        try:
+            # Normalize all prices to 100 at start for easy comparison
+            fig_overlay = go.Figure()
+            
+            colors = ["#00c882", "#6ec6ff", "#f5a623", "#ff4d6a", "#ccff90", "#80d8ff"]
+            
+            for idx, (sym, prices) in enumerate(price_data_all.items()):
+                normalized = (prices / prices.iloc[0]) * 100
+                
+                fig_overlay.add_trace(go.Scatter(
+                    x=normalized.index,
+                    y=normalized.values,
+                    mode='lines',
+                    name=sym,
+                    line=dict(color=colors[idx % len(colors)], width=2.5)
+                ))
+            
+            fig_overlay.update_layout(
+                title="<b>Performance Comparison</b> (Normalized to 100)",
+                paper_bgcolor="#080d1a",
+                plot_bgcolor="#080d1a",
+                font=dict(family="Inter", color="#c0d4e8", size=11),
+                xaxis=dict(
+                    showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                    color="#8aaac8"
+                ),
+                yaxis=dict(
+                    showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                    color="#8aaac8",
+                    title="Performance (Base = 100)"
+                ),
+                legend=dict(
+                    bgcolor="rgba(8,13,26,0.8)",
+                    bordercolor="rgba(255,255,255,0.1)",
+                    borderwidth=1
+                ),
+                margin=dict(l=10, r=10, t=40, b=40),
+                height=400,
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig_overlay, use_container_width=True, config={"displayModeBar": False})
+        
+        except Exception as e:
+            st.warning(f"Could not load overlay chart: {str(e)}")
 
 # ── Metric cards ──────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">// key metrics</div>', unsafe_allow_html=True)
+# Only show metric cards if NOT in comparison mode
+if not st.session_state.get("comparison_stocks"):
+    st.markdown('<div class="section-label">// key metrics</div>', unsafe_allow_html=True)
 
 METRIC_DISPLAY = [
     ("PE Ratio",       "PE Ratio",       None),
@@ -534,62 +670,62 @@ def _signal_class(sig):
     if sig == "🔴": return "red"
     return "grey"
 
-cols = st.columns(4)
-for i, (metric, label, _) in enumerate(METRIC_DISPLAY):
-    raw = data.get(metric)
-    avg = ind_avg.get(metric)
-    sig = interpret(metric, raw, avg)
-    val_str, _ = _display_val(metric, raw)
-    avg_str     = _avg_val(metric, avg)
-    css_class   = _signal_class(sig)
-    sig_icon    = sig if sig else "—"
+    cols = st.columns(4)
+    for i, (metric, label, _) in enumerate(METRIC_DISPLAY):
+        raw = data.get(metric)
+        avg = ind_avg.get(metric)
+        sig = interpret(metric, raw, avg)
+        val_str, _ = _display_val(metric, raw)
+        avg_str     = _avg_val(metric, avg)
+        css_class   = _signal_class(sig)
+        sig_icon    = sig if sig else "—"
 
-    col = cols[i % 4]
-    col.markdown(
-        '<div class="metric-card ' + css_class + '">'
-        '<div class="metric-signal">' + sig_icon + '</div>'
-        '<div class="metric-name">' + label + '</div>'
-        '<div class="metric-value">' + val_str + '</div>'
-        '<div class="metric-avg">Ind avg: ' + avg_str + '</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-    if (i + 1) % 4 == 0 and i < len(METRIC_DISPLAY) - 1:
-        cols = st.columns(4)
+        col = cols[i % 4]
+        col.markdown(
+            '<div class="metric-card ' + css_class + '">'
+            '<div class="metric-signal">' + sig_icon + '</div>'
+            '<div class="metric-name">' + label + '</div>'
+            '<div class="metric-value">' + val_str + '</div>'
+            '<div class="metric-avg">Ind avg: ' + avg_str + '</div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        if (i + 1) % 4 == 0 and i < len(METRIC_DISPLAY) - 1:
+            cols = st.columns(4)
 
-# ── Price chart ───────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">// price history</div>', unsafe_allow_html=True)
-period_opts = ["1mo", "3mo", "6mo", "1y", "3y", "5y", "max"]
-period = st.selectbox("Period", period_opts, index=3, label_visibility="collapsed", key="price_period")
-ch = _price_chart(chosen_sym, period)
-if ch is not None:
-    st.altair_chart(ch, use_container_width=True)
-else:
-    st.info("No price data available.")
+    # ── Price chart ───────────────────────────────────────────────────────────────
+    st.markdown('<div class="section-label">// price history</div>', unsafe_allow_html=True)
+    period_opts = ["1mo", "3mo", "6mo", "1y", "3y", "5y", "max"]
+    period = st.selectbox("Period", period_opts, index=3, label_visibility="collapsed", key="price_period")
+    ch = _price_chart(chosen_sym, period)
+    if ch is not None:
+        st.altair_chart(ch, use_container_width=True)
+    else:
+        st.info("No price data available.")
 
-# ── Financials ────────────────────────────────────────────────────────────────
-rev, pm, fcf = _rev_pm_fcf_frames(chosen_sym)
+    # ── Financials ────────────────────────────────────────────────────────────────
+    rev, pm, fcf = _rev_pm_fcf_frames(chosen_sym)
 
-has_rev = rev is not None and not rev.empty
-has_pm  = pm  is not None and not pm.empty
-has_fcf = fcf is not None and not fcf.empty
+    has_rev = rev is not None and not rev.empty
+    has_pm  = pm  is not None and not pm.empty
+    has_fcf = fcf is not None and not fcf.empty
 
-if has_rev or has_pm or has_fcf:
-    st.markdown('<div class="section-label">// financials</div>', unsafe_allow_html=True)
-    if has_rev and has_pm:
-        fc1, fc2 = st.columns(2)
-        with fc1:
-            st.caption("Revenue (Rs. Cr)")
-            st.bar_chart(rev)
-        with fc2:
-            st.caption("Profit Margin (%)")
-            st.line_chart(pm)
-    elif has_rev:
-        st.caption("Revenue (Rs. Cr)"); st.bar_chart(rev)
-    elif has_pm:
-        st.caption("Profit Margin (%)"); st.line_chart(pm)
-    if has_fcf:
-        st.caption("Free Cash Flow (Rs. Cr)"); st.bar_chart(fcf)
+    if has_rev or has_pm or has_fcf:
+        st.markdown('<div class="section-label">// financials</div>', unsafe_allow_html=True)
+        if has_rev and has_pm:
+            fc1, fc2 = st.columns(2)
+            with fc1:
+                st.caption("Revenue (Rs. Cr)")
+                st.bar_chart(rev)
+            with fc2:
+                st.caption("Profit Margin (%)")
+                st.line_chart(pm)
+        elif has_rev:
+            st.caption("Revenue (Rs. Cr)"); st.bar_chart(rev)
+        elif has_pm:
+            st.caption("Profit Margin (%)"); st.line_chart(pm)
+        if has_fcf:
+            st.caption("Free Cash Flow (Rs. Cr)"); st.bar_chart(fcf)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:2rem 0 1rem;'>", unsafe_allow_html=True)
