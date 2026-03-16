@@ -77,8 +77,7 @@ def _fetch_core_metrics(symbol: str) -> dict:
 # ────────────────────────────────────────────────────────────────────
 
 
-@st.cache_data(ttl=60 * 60 * 6, show_spinner=True)
-@st.cache_data(ttl=60 * 60 * 6, show_spinner=True)
+@st.cache_data(ttl=60 * 60 * 6, show_spinner=False)
 def get_industry_averages(industry, master_df, max_peers=None):
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
