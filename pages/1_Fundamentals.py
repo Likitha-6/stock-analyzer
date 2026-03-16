@@ -315,6 +315,173 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ── Add to Comparison Feature ────────────────────────────────────────────────────
+st.markdown('<div class="section-label">// compare mode</div>', unsafe_allow_html=True)
+
+col_comp1, col_comp2, col_comp3 = st.columns([2, 1, 1])
+
+with col_comp1:
+    add_to_comp = st.text_input(
+        "Add stock to compare",
+        placeholder="Search symbol or company...",
+        key="add_compare_stock",
+        label_visibility="collapsed"
+    ).strip()
+    
+    compare_sym = None
+    if add_to_comp:
+        mask = (
+            name_df["Symbol"].str.contains(add_to_comp, case=False, na=False) |
+            name_df["Company Name"].str.contains(add_to_comp, case=False, na=False)
+        )
+        matches = name_df[mask]
+        if not matches.empty:
+            opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
+            compare_sym = st.selectbox(
+                "Select stock to add",
+                opts.tolist(),
+                label_visibility="collapsed",
+                key="select_compare"
+            ).split(" – ")[0]
+
+with col_comp2:
+    if st.button("➕ Add", key="btn_add_compare"):
+        if compare_sym and compare_sym != chosen_sym:
+            if "comparison_stocks" not in st.session_state:
+                st.session_state.comparison_stocks = []
+            if compare_sym not in st.session_state.comparison_stocks:
+                st.session_state.comparison_stocks.append(compare_sym)
+                st.success(f"✅ Added {compare_sym}")
+        elif compare_sym == chosen_sym:
+            st.warning("Stock already selected")
+
+with col_comp3:
+    if st.button("🗑️ Clear All", key="btn_clear_compare"):
+        st.session_state.comparison_stocks = []
+        st.info("Comparison cleared")
+
+# Show comparison stocks
+if st.session_state.get("comparison_stocks"):
+    st.markdown(f'**Comparing:** {chosen_sym} vs {", ".join(st.session_state.comparison_stocks)}')
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # COMPARISON TABLE
+    # ─────────────────────────────────────────────────────────────────────────
+    
+    st.markdown('<div class="section-label">// comparison table</div>', unsafe_allow_html=True)
+    
+    with st.spinner("Loading comparison data..."):
+        comparison_stocks_list = [chosen_sym] + st.session_state.comparison_stocks
+        comparison_results = {}
+        
+        for sym in comparison_stocks_list:
+            try:
+                if sym == chosen_sym:
+                    comp_data = data
+                    comp_company = company
+                    comp_industry = industry
+                else:
+                    comp_data = _fetch_core_metrics(sym)
+                    comp_db = master_df[master_df["Symbol"] == sym]
+                    comp_company = comp_data.get("_company") or (comp_db.iloc[0]["Company Name"] if not comp_db.empty else sym)
+                    comp_industry = comp_db.iloc[0]["Industry"] if not comp_db.empty else "N/A"
+                
+                comparison_results[sym] = {
+                    "company": comp_company,
+                    "industry": comp_industry,
+                    "PE Ratio": comp_data.get("PE Ratio"),
+                    "EPS": comp_data.get("EPS"),
+                    "Profit Margin": comp_data.get("Profit Margin"),
+                    "ROE": comp_data.get("ROE"),
+                    "Debt to Equity": comp_data.get("Debt to Equity"),
+                    "Dividend Yield": comp_data.get("Dividend Yield"),
+                }
+            except:
+                pass
+        
+        # Display as styled table
+        st.markdown('<div style="overflow-x:auto;">', unsafe_allow_html=True)
+        
+        metrics_compare = [
+            ("PE Ratio", "PE Ratio", None, "Lower is better"),
+            ("EPS", "EPS", "Rs.", "Higher is better"),
+            ("Profit Margin", "Profit Margin", "%", "Higher is better"),
+            ("ROE", "ROE", "%", "Higher is better"),
+            ("Debt to Equity", "Debt to Equity", None, "Lower is better"),
+            ("Dividend Yield", "Dividend Yield", "%", "Higher is better"),
+        ]
+        
+        # Build HTML table
+        html_table = '<table style="width:100%;border-collapse:collapse;margin:1rem 0;">'
+        html_table += '<tr style="background:#0d1628;border-bottom:2px solid rgba(0,200,130,0.3);">'
+        html_table += '<th style="padding:1rem;text-align:left;color:#8aaac8;font-size:0.75rem;text-transform:uppercase;font-weight:700;">Metric</th>'
+        
+        for sym in comparison_stocks_list:
+            html_table += f'<th style="padding:1rem;text-align:center;color:#00c882;font-size:0.75rem;text-transform:uppercase;font-weight:700;">{sym}</th>'
+        
+        html_table += '</tr>'
+        
+        for metric_name, metric_key, unit, direction in metrics_compare:
+            row_bg = '#0a1420'
+            html_table += f'<tr style="background:{row_bg};border-bottom:1px solid rgba(255,255,255,0.05);">'
+            html_table += f'<td style="padding:0.8rem;color:#c0d4e8;font-size:0.8rem;font-weight:500;">{metric_name}<br><span style="color:#6a88a8;font-size:0.7rem;">{direction}</span></td>'
+            
+            # Get values for this metric
+            values = []
+            for sym in comparison_stocks_list:
+                if sym in comparison_results:
+                    val = comparison_results[sym][metric_key]
+                    if val is not None:
+                        if unit == "Rs.":
+                            display_val = f"₹{val:.2f}"
+                        elif unit == "%":
+                            display_val = f"{val*100:.2f}%"
+                        else:
+                            display_val = f"{val:.2f}"
+                        values.append((sym, val, display_val))
+                    else:
+                        values.append((sym, None, "N/A"))
+                else:
+                    values.append((sym, None, "N/A"))
+            
+            # Determine best/worst
+            numeric_vals = [(sym, v) for sym, v, _ in values if v is not None]
+            if numeric_vals:
+                if "Lower is better" in direction:
+                    best_sym = min(numeric_vals, key=lambda x: x[1])[0]
+                    worst_sym = max(numeric_vals, key=lambda x: x[1])[0]
+                else:
+                    best_sym = max(numeric_vals, key=lambda x: x[1])[0]
+                    worst_sym = min(numeric_vals, key=lambda x: x[1])[0]
+            else:
+                best_sym = worst_sym = None
+            
+            # Add value cells
+            for sym, val, display_val in values:
+                if val is None or best_sym is None:
+                    cell_color = "transparent"
+                    text_color = "#f0f4ff"
+                elif sym == best_sym:
+                    cell_color = "rgba(0,200,130,0.2)"
+                    text_color = "#00c882"
+                elif sym == worst_sym:
+                    cell_color = "rgba(255,77,106,0.2)"
+                    text_color = "#ff4d6a"
+                else:
+                    cell_color = "transparent"
+                    text_color = "#f0f4ff"
+                
+                html_table += f'<td style="padding:0.8rem;text-align:center;color:{text_color};font-size:0.8rem;font-weight:600;background:{cell_color};">{display_val}</td>'
+            
+            html_table += '</tr>'
+        
+        html_table += '</table>'
+        
+        st.markdown(html_table, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.caption("🟢 Green = Best value | 🔴 Red = Worst value")
+
 # ── Metric cards ──────────────────────────────────────────────────────────────
 st.markdown('<div class="section-label">// key metrics</div>', unsafe_allow_html=True)
 
@@ -431,131 +598,6 @@ st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);
 # COMPARE WITH OTHER STOCKS
 # ─────────────────────────────────────────────────────────────────────────────
 
-st.markdown('<div class="section-label">// compare with other stocks</div>', unsafe_allow_html=True)
-
-with st.expander("📊 Compare " + chosen_sym + " with other stocks", expanded=False):
-    col1, col2, col3 = st.columns(3)
-    
-    # Stock 2
-    with col1:
-        query_compare = st.text_input("Search Stock to Compare", placeholder="Symbol or name...", key="compare_search")
-        compare_sym = None
-        if query_compare:
-            mask = (
-                name_df["Symbol"].str.contains(query_compare, case=False, na=False) |
-                name_df["Company Name"].str.contains(query_compare, case=False, na=False)
-            )
-            matches = name_df[mask]
-            if not matches.empty:
-                opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
-                sel = st.selectbox("Select to compare", opts.tolist(), label_visibility="collapsed", key="compare_select")
-                compare_sym = sel.split(" – ")[0]
-    
-    if query_compare and compare_sym:
-        # Fetch data for comparison stock
-        with st.spinner(f"Loading {compare_sym}..."):
-            compare_data = _fetch_core_metrics(compare_sym)
-            compare_db = master_df[master_df["Symbol"] == compare_sym]
-            
-            if compare_db.empty:
-                st.error(f"Could not find {compare_sym} in database")
-            else:
-                compare_row = compare_db.iloc[0]
-                compare_company = compare_data.get("_company") or compare_row["Company Name"]
-                compare_industry = compare_row["Industry"]
-                
-                # Display comparison table
-                st.markdown('<div style="margin-top:1.2rem;">', unsafe_allow_html=True)
-                
-                metrics_to_compare = [
-                    ("PE Ratio", "PE Ratio", None),
-                    ("EPS", "EPS", "Rs."),
-                    ("Profit Margin", "Profit Margin", "%"),
-                    ("ROE", "ROE", "%"),
-                    ("Debt to Equity", "Debt to Equity", None),
-                    ("Dividend Yield", "Dividend Yield", "%"),
-                ]
-                
-                comparison_df = pd.DataFrame({
-                    chosen_sym: [],
-                    compare_sym: [],
-                    "Better": []
-                })
-                
-                for display_name, metric_key, unit in metrics_to_compare:
-                    val1 = data.get(metric_key)
-                    val2 = compare_data.get(metric_key)
-                    
-                    # Format values
-                    if val1 is not None:
-                        if unit == "Rs.":
-                            display_val1 = f"₹{val1:.2f}"
-                        elif unit == "%":
-                            display_val1 = f"{val1*100:.2f}%"
-                        else:
-                            display_val1 = f"{val1:.2f}"
-                    else:
-                        display_val1 = "N/A"
-                    
-                    if val2 is not None:
-                        if unit == "Rs.":
-                            display_val2 = f"₹{val2:.2f}"
-                        elif unit == "%":
-                            display_val2 = f"{val2*100:.2f}%"
-                        else:
-                            display_val2 = f"{val2:.2f}"
-                    else:
-                        display_val2 = "N/A"
-                    
-                    # Determine better value
-                    better = ""
-                    if val1 is not None and val2 is not None:
-                        lower_is_better = metric_key in ("PE Ratio", "Debt to Equity")
-                        if lower_is_better:
-                            better = "✅ " + chosen_sym if val1 < val2 else "✅ " + compare_sym
-                        else:
-                            better = "✅ " + chosen_sym if val1 > val2 else "✅ " + compare_sym
-                    
-                    comparison_df = pd.concat([
-                        comparison_df,
-                        pd.DataFrame({
-                            chosen_sym: [display_val1],
-                            compare_sym: [display_val2],
-                            "Better": [better]
-                        })
-                    ], ignore_index=True)
-                
-                # Display as HTML table with custom styling
-                html_table = '<table style="width:100%;border-collapse:collapse;margin:1rem 0;">'
-                html_table += '<tr style="background:#0d1628;border-bottom:1px solid rgba(255,255,255,0.1);">'
-                html_table += '<th style="padding:0.8rem;text-align:left;color:#8aaac8;font-size:0.75rem;text-transform:uppercase;">Metric</th>'
-                html_table += f'<th style="padding:0.8rem;text-align:center;color:#00c882;font-size:0.75rem;text-transform:uppercase;">{chosen_sym}</th>'
-                html_table += f'<th style="padding:0.8rem;text-align:center;color:#6ec6ff;font-size:0.75rem;text-transform:uppercase;">{compare_sym}</th>'
-                html_table += '<th style="padding:0.8rem;text-align:center;color:#f5a623;font-size:0.75rem;text-transform:uppercase;">Winner</th>'
-                html_table += '</tr>'
-                
-                for idx, (display_name, _, _) in enumerate(metrics_to_compare):
-                    row_bg = '#0a1420' if idx % 2 == 0 else '#0d1628'
-                    html_table += f'<tr style="background:{row_bg};border-bottom:1px solid rgba(255,255,255,0.05);">'
-                    html_table += f'<td style="padding:0.8rem;color:#c0d4e8;font-size:0.8rem;">{display_name}</td>'
-                    html_table += f'<td style="padding:0.8rem;text-align:center;color:#f0f4ff;font-size:0.8rem;">{comparison_df.iloc[idx][chosen_sym]}</td>'
-                    html_table += f'<td style="padding:0.8rem;text-align:center;color:#f0f4ff;font-size:0.8rem;">{comparison_df.iloc[idx][compare_sym]}</td>'
-                    html_table += f'<td style="padding:0.8rem;text-align:center;color:#f5a623;font-size:0.8rem;font-weight:600;">{comparison_df.iloc[idx]["Better"]}</td>'
-                    html_table += '</tr>'
-                
-                html_table += '</table>'
-                
-                st.markdown(html_table, unsafe_allow_html=True)
-                
-                # Quick insight
-                st.markdown(f'''
-                **Quick Comparison:**
-                
-                - **{chosen_sym}** in {industry}
-                - **{compare_sym}** in {compare_industry}
-                ''')
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
     "<div style='font-size:0.68rem !important;color:#6a88a8;'>"
