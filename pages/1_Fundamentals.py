@@ -594,13 +594,23 @@ if st.session_state.get("comparison_stocks"):
         
         st.markdown('<div class="section-label">// normalized performance overlay</div>', unsafe_allow_html=True)
         
+        # Determine period based on interval for overlay chart
+        if interval == "1wk":
+            overlay_period = "1y"
+        elif interval == "1d":
+            overlay_period = "60d"
+        elif interval == "60m":
+            overlay_period = "5d"
+        else:
+            overlay_period = "2d"
+        
         try:
-            # Fetch price data for overlay with same interval and max period
+            # Fetch price data for overlay with selected interval and period
             overlay_data = {}
             
             for sym in comparison_stocks_list:
                 try:
-                    hist = yf.Ticker(sym + ".NS").history(interval=interval, period="max")
+                    hist = yf.Ticker(sym + ".NS").history(interval=interval, period=overlay_period)
                     if not hist.empty:
                         overlay_data[sym] = hist["Close"]
                 except:
