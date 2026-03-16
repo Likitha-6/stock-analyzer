@@ -484,76 +484,114 @@ if st.session_state.get("comparison_stocks"):
         st.caption("🟢 Green = Best value | 🔴 Red = Worst value")
         
         # ─────────────────────────────────────────────────────────────────────────
-        # SIDE-BY-SIDE PRICE CHARTS
+        # SIDE-BY-SIDE PRICE CHARTS WITH INTERVAL SELECTOR
         # ─────────────────────────────────────────────────────────────────────────
         
-        st.markdown('<div class="section-label">// price history comparison</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">// price charts comparison</div>', unsafe_allow_html=True)
+        
+        interval_mapping = {"5 min": "5m", "15 min": "15m", "1 hour": "60m", "1 day": "1d", "1 week": "1wk"}
+        selected_interval = st.selectbox(
+            "Chart Interval",
+            list(interval_mapping.keys()),
+            index=3,
+            label_visibility="collapsed",
+            key="comparison_chart_interval"
+        )
+        interval = interval_mapping[selected_interval]
+        
+        # Determine period based on interval
+        if interval == "1wk":
+            period = "1y"
+        elif interval == "1d":
+            period = "60d"
+        elif interval == "60m":
+            period = "5d"
+        else:
+            period = "2d"
         
         try:
-            # Fetch price data for all stocks
+            # Fetch OHLC data for all stocks
             price_data_all = {}
             
             for sym in comparison_stocks_list:
                 try:
-                    hist = yf.Ticker(sym + ".NS").history("1y", auto_adjust=True)
+                    hist = yf.Ticker(sym + ".NS").history(interval=interval, period=period)
                     if not hist.empty:
-                        price_data_all[sym] = hist["Close"]
+                        price_data_all[sym] = hist
                 except:
                     pass
             
             if price_data_all:
-                # Create subplots for each stock
+                # Create candlestick charts for each stock
                 num_stocks = len(price_data_all)
                 cols_per_row = 2
-                num_rows = (num_stocks + 1) // 2
                 
                 chart_cols = st.columns(cols_per_row)
                 
-                for idx, (sym, prices) in enumerate(price_data_all.items()):
+                colors_palette = ["#00c882", "#6ec6ff", "#f5a623", "#ff4d6a", "#ccff90", "#80d8ff", "#ffd180", "#ff80ab"]
+                
+                for idx, (sym, hist) in enumerate(price_data_all.items()):
                     with chart_cols[idx % cols_per_row]:
+                        hist_reset = hist.reset_index()
+                        
+                        is_intraday = any(k in interval for k in ("m", "h"))
+                        if is_intraday:
+                            hist_reset["x_label"] = hist_reset["Datetime"].dt.strftime("%d/%m %H:%M")
+                        else:
+                            hist_reset["x_label"] = hist_reset["Date"].dt.strftime("%d/%m/%y") if "Date" in hist_reset.columns else hist_reset["Datetime"].dt.strftime("%d/%m/%y")
+                        
                         fig = go.Figure()
                         
-                        fig.add_trace(go.Scatter(
-                            x=prices.index,
-                            y=prices.values,
-                            mode='lines',
-                            name=sym,
-                            line=dict(color='#00c882', width=2),
-                            fill='tozeroy',
-                            fillcolor='rgba(0,200,130,0.1)'
+                        # Candlestick
+                        fig.add_trace(go.Candlestick(
+                            x=hist_reset["x_label"],
+                            open=hist_reset["Open"],
+                            high=hist_reset["High"],
+                            low=hist_reset["Low"],
+                            close=hist_reset["Close"],
+                            increasing_line_color="#00c882",
+                            decreasing_line_color="#ff4d6a",
+                            name=sym
                         ))
                         
-                        # Add min/max lines
-                        min_price = prices.min()
-                        max_price = prices.max()
+                        # Support/Resistance lines
+                        support = hist_reset["Low"].min()
+                        resistance = hist_reset["High"].max()
                         
                         fig.add_hline(
-                            y=min_price, 
-                            line_dash="dash", 
-                            line_color="#ff4d6a",
-                            annotation=dict(text=f"Low: ₹{min_price:.0f}", font=dict(color="#ff4d6a", size=9))
+                            y=support,
+                            line_dash="dot",
+                            line_width=1,
+                            line_color="#00c882",
+                            annotation=dict(text="Support", font=dict(color="#00c882", size=9), yanchor="bottom")
                         )
                         fig.add_hline(
-                            y=max_price,
-                            line_dash="dash",
-                            line_color="#00c882",
-                            annotation=dict(text=f"High: ₹{max_price:.0f}", font=dict(color="#00c882", size=9))
+                            y=resistance,
+                            line_dash="dot",
+                            line_width=1,
+                            line_color="#ff4d6a",
+                            annotation=dict(text="Resistance", font=dict(color="#ff4d6a", size=9), yanchor="top")
                         )
                         
                         fig.update_layout(
-                            title=f"<b>{sym}</b> - 1 Year Price",
+                            title=f"<b>{sym}</b>",
                             paper_bgcolor="#080d1a",
                             plot_bgcolor="#080d1a",
                             font=dict(family="Inter", color="#c0d4e8", size=10),
                             xaxis=dict(
-                                showgrid=True, gridcolor="rgba(255,255,255,0.04)",
-                                color="#8aaac8"
+                                showgrid=True,
+                                gridcolor="rgba(255,255,255,0.04)",
+                                color="#8aaac8",
+                                rangeslider_visible=False,
+                                tickfont=dict(size=9)
                             ),
                             yaxis=dict(
-                                showgrid=True, gridcolor="rgba(255,255,255,0.04)",
-                                color="#8aaac8"
+                                showgrid=True,
+                                gridcolor="rgba(255,255,255,0.04)",
+                                color="#8aaac8",
+                                side="right"
                             ),
-                            margin=dict(l=10, r=10, t=40, b=30),
+                            margin=dict(l=10, r=40, t=30, b=30),
                             height=350,
                             showlegend=False,
                             hovermode='x'
@@ -562,56 +600,69 @@ if st.session_state.get("comparison_stocks"):
                         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
         
         except Exception as e:
-            st.warning(f"Could not load price charts: {str(e)}")
+            st.warning(f"Could not load candlestick charts: {str(e)}")
         
         # ─────────────────────────────────────────────────────────────────────────
-        # OVERLAY COMPARISON CHART
+        # OVERLAY COMPARISON CHART - NORMALIZED PERFORMANCE
         # ─────────────────────────────────────────────────────────────────────────
         
         st.markdown('<div class="section-label">// normalized performance overlay</div>', unsafe_allow_html=True)
         
         try:
-            # Normalize all prices to 100 at start for easy comparison
-            fig_overlay = go.Figure()
+            # Fetch price data for overlay with same interval
+            overlay_data = {}
             
-            colors = ["#00c882", "#6ec6ff", "#f5a623", "#ff4d6a", "#ccff90", "#80d8ff"]
+            for sym in comparison_stocks_list:
+                try:
+                    hist = yf.Ticker(sym + ".NS").history(interval=interval, period=period)
+                    if not hist.empty:
+                        overlay_data[sym] = hist["Close"]
+                except:
+                    pass
             
-            for idx, (sym, prices) in enumerate(price_data_all.items()):
-                normalized = (prices / prices.iloc[0]) * 100
+            if overlay_data:
+                fig_overlay = go.Figure()
                 
-                fig_overlay.add_trace(go.Scatter(
-                    x=normalized.index,
-                    y=normalized.values,
-                    mode='lines',
-                    name=sym,
-                    line=dict(color=colors[idx % len(colors)], width=2.5)
-                ))
-            
-            fig_overlay.update_layout(
-                title="<b>Performance Comparison</b> (Normalized to 100)",
-                paper_bgcolor="#080d1a",
-                plot_bgcolor="#080d1a",
-                font=dict(family="Inter", color="#c0d4e8", size=11),
-                xaxis=dict(
-                    showgrid=True, gridcolor="rgba(255,255,255,0.04)",
-                    color="#8aaac8"
-                ),
-                yaxis=dict(
-                    showgrid=True, gridcolor="rgba(255,255,255,0.04)",
-                    color="#8aaac8",
-                    title="Performance (Base = 100)"
-                ),
-                legend=dict(
-                    bgcolor="rgba(8,13,26,0.8)",
-                    bordercolor="rgba(255,255,255,0.1)",
-                    borderwidth=1
-                ),
-                margin=dict(l=10, r=10, t=40, b=40),
-                height=400,
-                hovermode='x unified'
-            )
-            
-            st.plotly_chart(fig_overlay, use_container_width=True, config={"displayModeBar": False})
+                colors = ["#00c882", "#6ec6ff", "#f5a623", "#ff4d6a", "#ccff90", "#80d8ff", "#ffd180", "#ff80ab"]
+                
+                for idx, (sym, prices) in enumerate(overlay_data.items()):
+                    # Normalize to 100 at start
+                    normalized = (prices / prices.iloc[0]) * 100
+                    
+                    fig_overlay.add_trace(go.Scatter(
+                        x=normalized.index,
+                        y=normalized.values,
+                        mode='lines',
+                        name=sym,
+                        line=dict(color=colors[idx % len(colors)], width=2.5)
+                    ))
+                
+                fig_overlay.update_layout(
+                    title="<b>Performance Comparison</b> (Base = 100)",
+                    paper_bgcolor="#080d1a",
+                    plot_bgcolor="#080d1a",
+                    font=dict(family="Inter", color="#c0d4e8", size=11),
+                    xaxis=dict(
+                        showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                        color="#8aaac8", rangeslider_visible=False
+                    ),
+                    yaxis=dict(
+                        showgrid=True, gridcolor="rgba(255,255,255,0.04)",
+                        color="#8aaac8",
+                        title="Performance (Base = 100)"
+                    ),
+                    legend=dict(
+                        bgcolor="rgba(8,13,26,0.8)",
+                        bordercolor="rgba(255,255,255,0.1)",
+                        borderwidth=1,
+                        font=dict(size=10)
+                    ),
+                    margin=dict(l=10, r=10, t=40, b=40),
+                    height=400,
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig_overlay, use_container_width=True, config={"displayModeBar": False})
         
         except Exception as e:
             st.warning(f"Could not load overlay chart: {str(e)}")
