@@ -486,7 +486,11 @@ if st.session_state.get("comparison_stocks"):
                         if unit == "Rs.":
                             display_val = f"₹{val:.2f}"
                         elif unit == "%":
-                            display_val = f"{val*100:.2f}%"
+                            # Dividend Yield comes as large decimal (e.g., 2.61 = 261%), divide by 100 to get correct %
+                            if metric_key == "Dividend Yield":
+                                display_val = f"{val/100:.2f}%"
+                            else:
+                                display_val = f"{val*100:.2f}%"
                         else:
                             display_val = f"{val:.2f}"
                         values.append((sym, val, display_val))
