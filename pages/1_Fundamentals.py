@@ -477,43 +477,25 @@ if st.session_state.get("comparison_stocks"):
             html_table += f'<tr style="background:{row_bg};border-bottom:1px solid rgba(255,255,255,0.05);">'
             html_table += f'<td style="padding:0.8rem;color:#c0d4e8;font-size:0.8rem;font-weight:500;">{metric_name}<br><span style="color:#6a88a8;font-size:0.7rem;">{direction}</span></td>'
             
-            # Define realistic ranges for metrics
-            realistic_ranges = {
-                "PE Ratio": (0, 500),                # PE should be 0-500 (unrealistic beyond)
-                "EPS": (-10000, 100000),             # EPS in reasonable range
-                "Profit Margin": (-1, 1),            # -100% to 100%
-                "ROE": (-1, 1),                      # -100% to 100%
-                "Debt to Equity": (0, 50),           # 0-50 is reasonable
-                "Dividend Yield": (0, 0.50),         # 0-50% as decimal (0.50 = 50%)
-            }
-            
-            min_val, max_val = realistic_ranges.get(metric_key, (float('-inf'), float('inf')))
-            
             # Get values for this metric
             values = []
             for sym in comparison_stocks_list:
                 if sym in comparison_results:
                     val = comparison_results[sym][metric_key]
                     if val is not None:
-                        # Check if value is realistic
-                        if min_val <= val <= max_val:
-                            if unit == "Rs.":
-                                display_val = f"₹{val:.2f}"
-                            elif unit == "%":
-                                # All % values come as decimals, multiply by 100 for display
-                                display_val = f"{val*100:.2f}%"
-                            else:
-                                display_val = f"{val:.2f}"
-                            values.append((sym, val, display_val))
+                        if unit == "Rs.":
+                            display_val = f"₹{val:.2f}"
+                        elif unit == "%":
+                            display_val = f"{val*100:.2f}%"
                         else:
-                            # Outlier/unrealistic value - show as N/A
-                            values.append((sym, None, "N/A"))
+                            display_val = f"{val:.2f}"
+                        values.append((sym, val, display_val))
                     else:
                         values.append((sym, None, "N/A"))
                 else:
                     values.append((sym, None, "N/A"))
             
-            # Determine best/worst (only from realistic values)
+            # Determine best/worst
             numeric_vals = [(sym, v) for sym, v, _ in values if v is not None]
             if numeric_vals:
                 if "Lower is better" in direction:
