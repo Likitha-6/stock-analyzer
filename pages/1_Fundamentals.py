@@ -361,22 +361,22 @@ with add_col1:
             )
             if selected:
                 compare_sym = selected.split(" – ")[0]
+                
+                # Auto-add when selected (no button needed)
+                if compare_sym:
+                    if compare_sym == chosen_sym:
+                        st.warning(f"⚠️ {compare_sym} already selected")
+                    elif "comparison_stocks" not in st.session_state:
+                        st.session_state.comparison_stocks = [compare_sym]
+                        st.success(f"✅ Added {compare_sym}")
+                        st.rerun()
+                    elif compare_sym not in st.session_state.comparison_stocks:
+                        st.session_state.comparison_stocks.append(compare_sym)
+                        st.success(f"✅ Added {compare_sym}")
+                        st.rerun()
 
 with add_col2:
-    if st.button("➕ Add", key="btn_add_compare", use_container_width=True):
-        if compare_sym:
-            if compare_sym == chosen_sym:
-                st.warning(f"⚠️ {compare_sym} already selected")
-            elif "comparison_stocks" not in st.session_state:
-                st.session_state.comparison_stocks = [compare_sym]
-                st.success(f"✅ Added {compare_sym}")
-                st.rerun()
-            elif compare_sym not in st.session_state.comparison_stocks:
-                st.session_state.comparison_stocks.append(compare_sym)
-                st.success(f"✅ Added {compare_sym}")
-                st.rerun()
-            else:
-                st.warning(f"⚠️ {compare_sym} already in comparison")
+    st.write("")  # Empty space to align with search box
 
 # Show added stocks with remove buttons
 if st.session_state.get("comparison_stocks"):
