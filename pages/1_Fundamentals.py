@@ -159,12 +159,14 @@ if "Description" not in master_df.columns:
 
 # ── Search bar ────────────────────────────────────────────────────────────────
 chosen_sym = None
-default_sym = st.session_state.get("compare_symbol")
 
-if default_sym and not st.session_state.get("already_loaded_from_sector"):
-    chosen_sym = default_sym
-    st.session_state["already_loaded_from_sector"] = True
-    st.session_state["compare_symbol"] = None
+# Check if coming from Sector Analysis
+if st.session_state.get("compare_symbol"):
+    chosen_sym = st.session_state.get("compare_symbol")
+    st.session_state["compare_symbol"] = None  # Clear after use
+# Otherwise, check if already loaded in this session
+elif st.session_state.get("fundamentals_stock"):
+    chosen_sym = st.session_state.get("fundamentals_stock")
 else:
     query = st.text_input(
         "search",
@@ -183,6 +185,10 @@ else:
             opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
             sel  = st.selectbox("Select company", opts.tolist(), label_visibility="collapsed")
             chosen_sym = sel.split(" – ")[0]
+
+# Save to session state to persist across reruns
+if chosen_sym:
+    st.session_state["fundamentals_stock"] = chosen_sym
 
 if not chosen_sym:
     st.stop()
