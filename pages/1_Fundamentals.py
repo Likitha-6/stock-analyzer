@@ -479,12 +479,12 @@ if st.session_state.get("comparison_stocks"):
             
             # Define realistic ranges for metrics
             realistic_ranges = {
-                "PE Ratio": (0, 500),           # PE should be 0-500 (unrealistic beyond)
-                "EPS": (-10000, 100000),         # EPS in reasonable range
-                "Profit Margin": (-1, 1),        # -100% to 100%
-                "ROE": (-1, 1),                  # -100% to 100%
-                "Debt to Equity": (0, 50),       # 0-50 is reasonable
-                "Dividend Yield": (0, 0.5),      # 0-50% max (anything higher is unrealistic)
+                "PE Ratio": (0, 500),                # PE should be 0-500 (unrealistic beyond)
+                "EPS": (-10000, 100000),             # EPS in reasonable range
+                "Profit Margin": (-1, 1),            # -100% to 100%
+                "ROE": (-1, 1),                      # -100% to 100%
+                "Debt to Equity": (0, 50),           # 0-50 is reasonable
+                "Dividend Yield": (0, 0.50),         # 0-50% as decimal (0.50 = 50%)
             }
             
             min_val, max_val = realistic_ranges.get(metric_key, (float('-inf'), float('inf')))
@@ -500,6 +500,7 @@ if st.session_state.get("comparison_stocks"):
                             if unit == "Rs.":
                                 display_val = f"₹{val:.2f}"
                             elif unit == "%":
+                                # All % values come as decimals, multiply by 100 for display
                                 display_val = f"{val*100:.2f}%"
                             else:
                                 display_val = f"{val:.2f}"
