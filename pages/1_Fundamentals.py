@@ -319,15 +319,30 @@ st.markdown(
 # ── Add to Comparison Feature ────────────────────────────────────────────────────
 st.markdown('<div class="section-label">// compare mode</div>', unsafe_allow_html=True)
 
-col_comp1, col_comp2, col_comp3 = st.columns([2, 1, 1])
+# Show current comparison status and controls
+if st.session_state.get("comparison_stocks"):
+    comp_status = st.columns([3, 1])
+    with comp_status[0]:
+        st.markdown(f"**📊 Comparing:** {chosen_sym} + {len(st.session_state.comparison_stocks)} stock(s)")
+    with comp_status[1]:
+        if st.button("🗑️ Clear All", key="btn_clear_compare", use_container_width=True):
+            st.session_state.comparison_stocks = []
+            st.rerun()
+else:
+    st.info("👇 **Add stocks below to start comparing**")
 
-with col_comp1:
+# Search and add stocks section
+st.markdown('**Add stock to compare:**')
+
+add_col1, add_col2 = st.columns([4, 1])
+
+with add_col1:
     add_to_comp = st.text_input(
-        "Add stock to compare",
-        placeholder="Search symbol or company...",
+        "Search",
+        placeholder="Type symbol (TCS, INFY, WIPRO) or company name...",
         key="add_compare_stock",
         label_visibility="collapsed"
-    ).strip()
+    ).strip().upper()
     
     compare_sym = None
     if add_to_comp:
@@ -338,32 +353,67 @@ with col_comp1:
         matches = name_df[mask]
         if not matches.empty:
             opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
-            compare_sym = st.selectbox(
-                "Select stock to add",
+            selected = st.selectbox(
+                "Select",
                 opts.tolist(),
                 label_visibility="collapsed",
                 key="select_compare"
-            ).split(" – ")[0]
+            )
+            if selected:
+                compare_sym = selected.split(" – ")[0]
 
-with col_comp2:
-    if st.button("➕ Add", key="btn_add_compare"):
-        if compare_sym and compare_sym != chosen_sym:
-            if "comparison_stocks" not in st.session_state:
-                st.session_state.comparison_stocks = []
-            if compare_sym not in st.session_state.comparison_stocks:
+with add_col2:
+    if st.button("➕ Add", key="btn_add_compare", use_container_width=True):
+        if compare_sym:
+            if compare_sym == chosen_sym:
+                st.warning(f"⚠️ {compare_sym} already selected")
+            elif "comparison_stocks" not in st.session_state:
+                st.session_state.comparison_stocks = [compare_sym]
+                st.success(f"✅ Added {compare_sym}")
+                st.rerun()
+            elif compare_sym not in st.session_state.comparison_stocks:
                 st.session_state.comparison_stocks.append(compare_sym)
                 st.success(f"✅ Added {compare_sym}")
-        elif compare_sym == chosen_sym:
-            st.warning("Stock already selected")
+                st.rerun()
+            else:
+                st.warning(f"⚠️ {compare_sym} already in comparison")
 
-with col_comp3:
-    if st.button("🗑️ Clear All", key="btn_clear_compare"):
-        st.session_state.comparison_stocks = []
-        st.info("Comparison cleared")
-
-# Show comparison stocks
+# Show added stocks with remove buttons
 if st.session_state.get("comparison_stocks"):
-    st.markdown(f'**Comparing:** {chosen_sym} vs {", ".join(st.session_state.comparison_stocks)}')
+    st.markdown('**Selected stocks:**')
+    
+    # Calculate how many columns we need (main + comparisons)
+    num_stocks = 1 + len(st.session_state.comparison_stocks)
+    cols = st.columns(num_stocks)
+    
+    # Show main stock
+    with cols[0]:
+        st.markdown(
+            f'<div style="background:#0d1628;border:2px solid #00c882;border-radius:10px;padding:1rem;text-align:center;height:100%;">'
+            f'<div style="color:#00c882;font-weight:700;font-size:1.2rem;margin-bottom:0.3rem;">{chosen_sym}</div>'
+            f'<div style="color:#8aaac8;font-size:0.7rem;letter-spacing:0.05em;">PRIMARY</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    
+    # Show comparison stocks
+    for idx, sym in enumerate(st.session_state.comparison_stocks):
+        with cols[idx + 1]:
+            col_top, col_bottom = st.columns([1, 4])
+            with col_top:
+                if st.button("✕", key=f"remove_{sym}", help=f"Remove {sym}"):
+                    st.session_state.comparison_stocks.remove(sym)
+                    st.rerun()
+            
+            st.markdown(
+                f'<div style="background:#0d1628;border:1px solid #6ec6ff;border-radius:10px;padding:0.8rem;text-align:center;">'
+                f'<div style="color:#6ec6ff;font-weight:700;font-size:1.1rem;margin-bottom:0.2rem;">{sym}</div>'
+                f'<div style="color:#8aaac8;font-size:0.65rem;letter-spacing:0.05em;">COMPARE</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+if st.session_state.get("comparison_stocks"):
     
     # ─────────────────────────────────────────────────────────────────────────
     # COMPARISON TABLE
