@@ -436,6 +436,20 @@ if st.session_state.get("comparison_stocks"):
                     comp_db = master_df[master_df["Symbol"] == sym]
                     comp_company = comp_data.get("_company") or (comp_db.iloc[0]["Company Name"] if not comp_db.empty else sym)
                     comp_industry = comp_db.iloc[0]["Industry"] if not comp_db.empty else "N/A"
+                    
+                    # Fill missing values from database
+                    if comp_db is not None and not comp_db.empty:
+                        db_row = comp_db.iloc[0]
+                        if comp_data.get("ROE") is None and "ROE" in db_row and pd.notna(db_row["ROE"]):
+                            comp_data["ROE"] = float(db_row["ROE"])
+                        if comp_data.get("PE Ratio") is None and "PE Ratio" in db_row and pd.notna(db_row["PE Ratio"]):
+                            comp_data["PE Ratio"] = float(db_row["PE Ratio"])
+                        if comp_data.get("Debt to Equity") is None and "DebtToEquity" in db_row and pd.notna(db_row["DebtToEquity"]):
+                            comp_data["Debt to Equity"] = float(db_row["DebtToEquity"])
+                        if comp_data.get("Profit Margin") is None and "ProfitMargin" in db_row and pd.notna(db_row["ProfitMargin"]):
+                            comp_data["Profit Margin"] = float(db_row["ProfitMargin"])
+                        if comp_data.get("EPS") is None and "EPS" in db_row and pd.notna(db_row["EPS"]):
+                            comp_data["EPS"] = float(db_row["EPS"])
                 
                 comparison_results[sym] = {
                     "company": comp_company,
@@ -447,7 +461,7 @@ if st.session_state.get("comparison_stocks"):
                     "Debt to Equity": comp_data.get("Debt to Equity"),
                     "Dividend Yield": comp_data.get("Dividend Yield"),
                 }
-            except:
+            except Exception as e:
                 pass
         
         # Display as styled table
