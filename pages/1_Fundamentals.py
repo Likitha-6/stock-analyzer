@@ -672,54 +672,54 @@ if st.session_state.get("comparison_stocks"):
 if not st.session_state.get("comparison_stocks"):
     st.markdown('<div class="section-label">// key metrics</div>', unsafe_allow_html=True)
 
-METRIC_DISPLAY = [
-    ("PE Ratio",       "PE Ratio",       None),
-    ("EPS",            "EPS",            "Rs."),
-    ("ROE",            "ROE",            None),
-    ("Profit Margin",  "Profit Margin",  None),
-    ("Debt to Equity", "Debt to Equity", None),
-    ("Dividend Yield", "Dividend Yield", None),
-    ("Free Cash Flow", "Free Cash Flow", None),
-]
+    METRIC_DISPLAY = [
+        ("PE Ratio",       "PE Ratio",       None),
+        ("EPS",            "EPS",            "Rs."),
+        ("ROE",            "ROE",            None),
+        ("Profit Margin",  "Profit Margin",  None),
+        ("Debt to Equity", "Debt to Equity", None),
+        ("Dividend Yield", "Dividend Yield", None),
+        ("Free Cash Flow", "Free Cash Flow", None),
+    ]
 
-def _display_val(metric, raw):
-    if raw is None or (isinstance(raw, float) and np.isnan(raw)):
-        return "N/A", "N/A"
-    if metric == "Debt to Equity":
-        v = raw / 100
-        return str(round(v, 2)) + "x", str(round(v, 2)) + "x"
-    if metric in ("Profit Margin", "ROE"):
-        v = raw * 100
-        return str(round(v, 1)) + "%", str(round(v, 1)) + "%"
-    if metric == "Free Cash Flow":
-        v = raw / 1e7
-        return "Rs." + str(round(v, 0)) + " Cr", str(round(v, 0))
-    if metric == "Dividend Yield":
-        v = raw * 100 if raw < 1 else raw
-        return str(round(v, 2)) + "%", str(round(v, 2)) + "%"
-    if metric == "EPS":
-        return "Rs." + str(round(raw, 2)), str(round(raw, 2))
-    return str(round(raw, 2)), str(round(raw, 2))
+    def _display_val(metric, raw):
+        if raw is None or (isinstance(raw, float) and np.isnan(raw)):
+            return "N/A", "N/A"
+        if metric == "Debt to Equity":
+            v = raw / 100
+            return str(round(v, 2)) + "x", str(round(v, 2)) + "x"
+        if metric in ("Profit Margin", "ROE"):
+            v = raw * 100
+            return str(round(v, 1)) + "%", str(round(v, 1)) + "%"
+        if metric == "Free Cash Flow":
+            v = raw / 1e7
+            return "Rs." + str(round(v, 0)) + " Cr", str(round(v, 0))
+        if metric == "Dividend Yield":
+            v = raw * 100 if raw < 1 else raw
+            return str(round(v, 2)) + "%", str(round(v, 2)) + "%"
+        if metric == "EPS":
+            return "Rs." + str(round(raw, 2)), str(round(raw, 2))
+        return str(round(raw, 2)), str(round(raw, 2))
 
-def _avg_val(metric, avg):
-    if avg is None or (isinstance(avg, float) and np.isnan(avg)):
-        return "N/A"
-    if metric == "Debt to Equity":
-        return str(round(avg / 100, 2)) + "x"
-    if metric in ("Profit Margin", "ROE"):
-        return str(round(avg * 100, 1)) + "%"
-    if metric == "Free Cash Flow":
-        return "Rs." + str(round(avg / 1e7, 0)) + " Cr"
-    if metric == "Dividend Yield":
-        v = avg * 100 if avg < 1 else avg
-        return str(round(v, 2)) + "%"
-    return str(round(avg, 2))
+    def _avg_val(metric, avg):
+        if avg is None or (isinstance(avg, float) and np.isnan(avg)):
+            return "N/A"
+        if metric == "Debt to Equity":
+            return str(round(avg / 100, 2)) + "x"
+        if metric in ("Profit Margin", "ROE"):
+            return str(round(avg * 100, 1)) + "%"
+        if metric == "Free Cash Flow":
+            return "Rs." + str(round(avg / 1e7, 0)) + " Cr"
+        if metric == "Dividend Yield":
+            v = avg * 100 if avg < 1 else avg
+            return str(round(v, 2)) + "%"
+        return str(round(avg, 2))
 
-def _signal_class(sig):
-    if sig == "✅": return "green"
-    if sig == "🟡": return "yellow"
-    if sig == "🔴": return "red"
-    return "grey"
+    def _signal_class(sig):
+        if sig == "✅": return "green"
+        if sig == "🟡": return "yellow"
+        if sig == "🔴": return "red"
+        return "grey"
 
     cols = st.columns(4)
     for i, (metric, label, _) in enumerate(METRIC_DISPLAY):
