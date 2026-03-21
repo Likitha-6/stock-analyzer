@@ -1,0 +1,133 @@
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(
+    page_title="Stock News",
+    page_icon="📰",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
+
+# ── CSS ──────────────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+#MainMenu, footer { visibility: hidden; }
+.block-container { padding-top: 3.5rem !important; padding-bottom: 2rem; }
+
+.page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.0rem !important; font-weight: 800;
+    color: #f0f4ff; letter-spacing: -0.02em; margin-bottom: 0.2rem;
+}
+.page-sub {
+    font-size: 0.78rem !important; color: #8aaac8;
+    margin-bottom: 1.6rem; letter-spacing: 0.05em;
+}
+.section-label {
+    font-size: 0.68rem !important; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #8aaac8;
+    border-left: 3px solid #00c882; padding-left: 0.6rem;
+    margin-bottom: 0.8rem; margin-top: 1.6rem;
+}
+.news-card {
+    background: #0d1628;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #6ec6ff;
+}
+
+.news-title {
+    font-size: 0.95rem !important; font-weight: 700;
+    color: #f0f4ff; margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+.news-source {
+    font-size: 0.75rem !important; color: #8aaac8;
+    text-transform: uppercase; letter-spacing: 0.05em;
+}
+.news-desc {
+    font-size: 0.8rem !important; color: #c0d4e8;
+    margin-top: 0.6rem; line-height: 1.5;
+}
+.news-date {
+    font-size: 0.7rem !important; color: #6a88a8;
+    margin-top: 0.8rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown('<div class="page-title">📰 Stock News</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-sub">// Latest news · market updates · breaking stories</div>', unsafe_allow_html=True)
+
+# ── Load stocks list ──────────────────────────────────────────────────────────
+try:
+    stocks_df = pd.read_csv("data/stocks.csv")
+    stocks_list = sorted(stocks_df['Symbol'].tolist())
+except:
+    st.error("❌ Could not load stocks. Please check data/stocks.csv")
+    st.stop()
+
+# ── Stock selector ────────────────────────────────────────────────────────────
+st.markdown('<div class="section-label">Select Stock</div>', unsafe_allow_html=True)
+
+selected_stock = st.selectbox(
+    "Choose a stock",
+    stocks_list,
+    label_visibility="collapsed"
+)
+
+# ── Fetch news ────────────────────────────────────────────────────────────────
+st.markdown('<div class="section-label">// latest news</div>', unsafe_allow_html=True)
+
+with st.spinner(f"🔄 Fetching latest news for {selected_stock}..."):
+    try:
+        ticker = yf.Ticker(f"{selected_stock}.NS")
+        news = ticker.news or []
+        
+        if not news:
+            st.warning(f"📰 No news available for {selected_stock}")
+        else:
+            st.markdown(f"**{len(news)} latest articles**\n")
+            
+            for idx, item in enumerate(news[:20], 1):  # Show max 20 articles
+                title = item.get("title", "No title")
+                summary = item.get("summary", "No summary available")
+                publisher = item.get("publisher", "Unknown Source")
+                link = item.get("link", "")
+                
+                # Get timestamp
+                timestamp = item.get("providerPublishTime", 0)
+                if timestamp:
+                    published_date = pd.to_datetime(timestamp, unit='s').strftime("%Y-%m-%d %H:%M")
+                else:
+                    published_date = "Recently"
+                
+                st.markdown(
+                    f'<div class="news-card">'
+                    f'<div class="news-source">{publisher}</div>'
+                    f'<div class="news-title">{title}</div>'
+                    f'<div class="news-desc">{summary[:300]}...</div>'
+                    f'<div class="news-date">📅 {published_date}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                
+                if link:
+                    st.markdown(f"[🔗 Read Full Article]({link})")
+                
+                st.markdown("")  # Spacing
+
+    except Exception as e:
+        st.error(f"❌ Error fetching news: {str(e)}")
+
+# ── Footer ────────────────────────────────────────────────────────────────────
+st.markdown("---")
+st.caption(f"📰 Fresh news fetched on load • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
