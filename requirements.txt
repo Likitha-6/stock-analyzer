@@ -13,3 +13,4 @@ nsetools
 feedparser
 transformers
 torch
+anthropic
