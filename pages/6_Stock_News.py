@@ -69,10 +69,11 @@ st.markdown('<div class="page-sub">// Latest news · market updates · breaking 
 
 # ── Load stocks list ──────────────────────────────────────────────────────────
 try:
-    stocks_df = pd.read_csv("data/stocks.csv")
-    stocks_list = sorted(stocks_df['Symbol'].tolist())
+    from common.sql import load_master
+    master_df = load_master()
+    stocks_list = sorted(master_df['Symbol'].unique().tolist())
 except:
-    st.error("❌ Could not load stocks. Please check data/stocks.csv")
+    st.error("❌ Could not load stocks from master data. Please check database connection.")
     st.stop()
 
 # ── Stock selector ────────────────────────────────────────────────────────────
