@@ -17,7 +17,11 @@ from datetime import datetime, timedelta
 # Initialize Claude client
 @st.cache_resource
 def get_claude_client():
-    return anthropic.Anthropic()
+    api_key = st.secrets.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        st.error("❌ ANTHROPIC_API_KEY not found in secrets")
+        st.stop()
+    return anthropic.Anthropic(api_key=api_key)
 
 def fetch_recent_news(symbol, days=2):
     """Fetch news for last N days"""
