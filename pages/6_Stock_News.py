@@ -1,3 +1,4 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -134,11 +135,55 @@ with st.spinner(f"🔄 Fetching latest news for {selected_stock}..."):
         if not news:
             st.warning(f"📰 No news available for {selected_stock}")
         else:
-            st.markdown(f"**Found {len(news)} articles - Checking data structure...**\n")
+            st.markdown(f"**{len(news)} latest articles**\n")
             
-            # Show first item to see structure
-            st.warning("Raw data structure:")
-            st.json(news[0] if news else {})
+            for item in news[:20]:
+                try:
+                    # Extract from nested content structure
+                    content = item.get("content", {})
+                    
+                    title = content.get("title", "")
+                    summary = content.get("summary", "")
+                    if not summary:
+                        summary = content.get("description", "")
+                    
+                    # Get publisher
+                    provider = content.get("provider", {})
+                    publisher = provider.get("displayName", "Unknown Source")
+                    
+                    # Get link
+                    canonical_url = content.get("canonicalUrl", {})
+                    link = canonical_url.get("url", "")
+                    
+                    # Get timestamp
+                    pub_date = content.get("pubDate", content.get("displayTime", ""))
+                    if pub_date:
+                        try:
+                            published_date = pd.to_datetime(pub_date).strftime("%Y-%m-%d %H:%M")
+                        except:
+                            published_date = "Recently"
+                    else:
+                        published_date = "Recently"
+                    
+                    # Display article
+                    if title:
+                        st.markdown(
+                            f'<div class="news-card">'
+                            f'<div class="news-source">{publisher}</div>'
+                            f'<div class="news-title">{title}</div>'
+                            f'<div class="news-desc">{summary[:300]}{"..." if len(summary) > 300 else ""}</div>'
+                            f'<div class="news-date">📅 {published_date}</div>'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
+                        
+                        if link:
+                            st.markdown(f"[🔗 Read Full Article]({link})")
+                        
+                        st.markdown("")  # Spacing
+                
+                except Exception as e:
+                    continue
 
     except Exception as e:
         st.error(f"❌ Error fetching news: {str(e)}")
