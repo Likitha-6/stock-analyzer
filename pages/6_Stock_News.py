@@ -79,14 +79,52 @@ except:
 # ── Stock selector ────────────────────────────────────────────────────────────
 st.markdown('<div class="section-label">Select Stock</div>', unsafe_allow_html=True)
 
-selected_stock = st.selectbox(
-    "Choose a stock",
-    stocks_list,
+# Initialize session state for selected stock
+if "news_stock" not in st.session_state:
+    st.session_state.news_stock = None
+
+# Search bar
+search_query = st.text_input(
+    "Search",
+    placeholder="🔍 Search by symbol or company name...",
     label_visibility="collapsed"
 )
 
+selected_stock = None
+
+if search_query:
+    # Search in symbol and company name
+    mask = (
+        master_df["Symbol"].str.contains(search_query, case=False, na=False) |
+        master_df["Company Name"].str.contains(search_query, case=False, na=False)
+    )
+    matches = master_df[mask]
+    
+    if not matches.empty:
+        opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
+        selected_option = st.selectbox(
+            "Select stock",
+            opts.tolist(),
+            label_visibility="collapsed",
+            key="news_stock_select"
+        )
+        if selected_option:
+            selected_stock = selected_option.split(" – ")[0]
+            st.session_state.news_stock = selected_stock
+    else:
+        st.warning("❌ No stocks found matching your search")
+elif st.session_state.news_stock:
+    # Use previously selected stock
+    selected_stock = st.session_state.news_stock
+    st.markdown(f"**Currently viewing:** {selected_stock}")
+else:
+    st.info("👆 Search for a stock to see news")
+
 # ── Fetch news ────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-label">// latest news</div>', unsafe_allow_html=True)
+
+if not selected_stock:
+    st.stop()
 
 with st.spinner(f"🔄 Fetching latest news for {selected_stock}..."):
     try:
