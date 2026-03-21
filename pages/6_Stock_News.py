@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -122,7 +121,7 @@ else:
     st.info("👆 Search for a stock to see news")
 
 # ── Fetch news ────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">// latest news</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">// latest news (last 2 days)</div>', unsafe_allow_html=True)
 
 if not selected_stock:
     st.stop()
@@ -135,55 +134,77 @@ with st.spinner(f"🔄 Fetching latest news for {selected_stock}..."):
         if not news:
             st.warning(f"📰 No news available for {selected_stock}")
         else:
-            st.markdown(f"**{len(news)} latest articles**\n")
+            # Filter news from last 2 days
+            two_days_ago = pd.Timestamp.now(tz='UTC') - pd.Timedelta(days=2)
+            recent_news = []
             
-            for item in news[:20]:
+            for item in news:
                 try:
-                    # Extract from nested content structure
                     content = item.get("content", {})
-                    
-                    title = content.get("title", "")
-                    summary = content.get("summary", "")
-                    if not summary:
-                        summary = content.get("description", "")
-                    
-                    # Get publisher
-                    provider = content.get("provider", {})
-                    publisher = provider.get("displayName", "Unknown Source")
-                    
-                    # Get link
-                    canonical_url = content.get("canonicalUrl", {})
-                    link = canonical_url.get("url", "")
-                    
-                    # Get timestamp
                     pub_date = content.get("pubDate", content.get("displayTime", ""))
+                    
                     if pub_date:
                         try:
-                            published_date = pd.to_datetime(pub_date).strftime("%Y-%m-%d %H:%M")
+                            article_date = pd.to_datetime(pub_date)
+                            if article_date >= two_days_ago:
+                                recent_news.append(item)
                         except:
-                            published_date = "Recently"
-                    else:
-                        published_date = "Recently"
-                    
-                    # Display article
-                    if title:
-                        st.markdown(
-                            f'<div class="news-card">'
-                            f'<div class="news-source">{publisher}</div>'
-                            f'<div class="news-title">{title}</div>'
-                            f'<div class="news-desc">{summary[:300]}{"..." if len(summary) > 300 else ""}</div>'
-                            f'<div class="news-date">📅 {published_date}</div>'
-                            f'</div>',
-                            unsafe_allow_html=True
-                        )
-                        
-                        if link:
-                            st.markdown(f"[🔗 Read Full Article]({link})")
-                        
-                        st.markdown("")  # Spacing
+                            pass
+                except:
+                    pass
+            
+            if not recent_news:
+                st.info(f"📰 No news for {selected_stock} in the last 2 days")
+            else:
+                st.markdown(f"**{len(recent_news)} articles from last 2 days**\n")
                 
-                except Exception as e:
-                    continue
+                for item in recent_news[:20]:
+                    try:
+                        # Extract from nested content structure
+                        content = item.get("content", {})
+                        
+                        title = content.get("title", "")
+                        summary = content.get("summary", "")
+                        if not summary:
+                            summary = content.get("description", "")
+                        
+                        # Get publisher
+                        provider = content.get("provider", {})
+                        publisher = provider.get("displayName", "Unknown Source")
+                        
+                        # Get link
+                        canonical_url = content.get("canonicalUrl", {})
+                        link = canonical_url.get("url", "")
+                        
+                        # Get timestamp
+                        pub_date = content.get("pubDate", content.get("displayTime", ""))
+                        if pub_date:
+                            try:
+                                published_date = pd.to_datetime(pub_date).strftime("%Y-%m-%d %H:%M")
+                            except:
+                                published_date = "Recently"
+                        else:
+                            published_date = "Recently"
+                        
+                        # Display article
+                        if title:
+                            st.markdown(
+                                f'<div class="news-card">'
+                                f'<div class="news-source">{publisher}</div>'
+                                f'<div class="news-title">{title}</div>'
+                                f'<div class="news-desc">{summary[:300]}{"..." if len(summary) > 300 else ""}</div>'
+                                f'<div class="news-date">📅 {published_date}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
+                            
+                            if link:
+                                st.markdown(f"[🔗 Read Full Article]({link})")
+                            
+                            st.markdown("")  # Spacing
+                    
+                    except Exception as e:
+                        continue
 
     except Exception as e:
         st.error(f"❌ Error fetching news: {str(e)}")
