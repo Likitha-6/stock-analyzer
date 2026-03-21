@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -135,68 +134,11 @@ with st.spinner(f"🔄 Fetching latest news for {selected_stock}..."):
         if not news:
             st.warning(f"📰 No news available for {selected_stock}")
         else:
-            st.markdown(f"**{len(news)} latest articles**\n")
+            st.markdown(f"**Found {len(news)} articles - Checking data structure...**\n")
             
-            news_found = 0
-            for item in news[:20]:  # Check max 20 articles
-                # Safely extract all fields
-                try:
-                    title = item.get("title", "").strip() if item.get("title") else ""
-                    if not title:
-                        title = item.get("headline", "").strip() if item.get("headline") else ""
-                    
-                    summary = item.get("summary", "").strip() if item.get("summary") else ""
-                    if not summary:
-                        summary = item.get("description", "").strip() if item.get("description") else ""
-                    if not summary:
-                        summary = item.get("content", "").strip() if item.get("content") else ""
-                    
-                    publisher = item.get("publisher", "").strip() if item.get("publisher") else ""
-                    if not publisher:
-                        publisher = item.get("source", "").strip() if item.get("source") else ""
-                    if not publisher:
-                        publisher = "Unknown Source"
-                    
-                    link = item.get("link", "").strip() if item.get("link") else ""
-                    if not link:
-                        link = item.get("url", "").strip() if item.get("url") else ""
-                    
-                    # Get timestamp
-                    timestamp = item.get("providerPublishTime")
-                    if timestamp:
-                        try:
-                            published_date = pd.to_datetime(timestamp, unit='s').strftime("%Y-%m-%d %H:%M")
-                        except:
-                            published_date = "Recently"
-                    else:
-                        published_date = "Recently"
-                    
-                    # Only display if we have a title
-                    if title:
-                        news_found += 1
-                        
-                        st.markdown(
-                            f'<div class="news-card">'
-                            f'<div class="news-source">{publisher}</div>'
-                            f'<div class="news-title">{title}</div>'
-                            f'<div class="news-desc">{summary[:300]}{"..." if len(summary) > 300 else ""}</div>'
-                            f'<div class="news-date">📅 {published_date}</div>'
-                            f'</div>',
-                            unsafe_allow_html=True
-                        )
-                        
-                        if link:
-                            st.markdown(f"[🔗 Read Full Article]({link})")
-                        
-                        st.markdown("")  # Spacing
-                
-                except Exception as e:
-                    continue
-            
-            if news_found == 0:
-                st.warning("⚠️ News data found but could not format properly")
-                st.info("Sample raw data:")
-                st.json(news[0] if news else {})
+            # Show first item to see structure
+            st.warning("Raw data structure:")
+            st.json(news[0] if news else {})
 
     except Exception as e:
         st.error(f"❌ Error fetching news: {str(e)}")
