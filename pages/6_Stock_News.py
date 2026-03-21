@@ -137,35 +137,58 @@ with st.spinner(f"🔄 Fetching latest news for {selected_stock}..."):
             st.markdown(f"**{len(news)} latest articles**\n")
             
             for idx, item in enumerate(news[:20], 1):  # Show max 20 articles
-                title = item.get("title", "No title")
-                summary = item.get("summary", "No summary available")
-                publisher = item.get("publisher", "Unknown Source")
-                link = item.get("link", "")
+                # Extract data - handle different formats
+                title = item.get("title") or item.get("headline") or "No title"
+                
+                # Try multiple fields for summary
+                summary = (item.get("summary") or 
+                          item.get("description") or 
+                          item.get("content") or 
+                          "No summary available")
+                
+                # Try multiple fields for source/publisher
+                publisher = (item.get("publisher") or 
+                            item.get("source") or 
+                            item.get("news_source") or 
+                            "Unknown Source")
+                
+                link = item.get("link") or item.get("url") or ""
                 
                 # Get timestamp
-                timestamp = item.get("providerPublishTime", 0)
+                timestamp = item.get("providerPublishTime") or item.get("published_time")
                 if timestamp:
-                    published_date = pd.to_datetime(timestamp, unit='s').strftime("%Y-%m-%d %H:%M")
+                    try:
+                        published_date = pd.to_datetime(timestamp, unit='s').strftime("%Y-%m-%d %H:%M")
+                    except:
+                        published_date = "Recently"
                 else:
                     published_date = "Recently"
                 
-                st.markdown(
-                    f'<div class="news-card">'
-                    f'<div class="news-source">{publisher}</div>'
-                    f'<div class="news-title">{title}</div>'
-                    f'<div class="news-desc">{summary[:300]}...</div>'
-                    f'<div class="news-date">📅 {published_date}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-                
-                if link:
-                    st.markdown(f"[🔗 Read Full Article]({link})")
-                
-                st.markdown("")  # Spacing
+                # Only show if we have meaningful content
+                if title and title != "No title":
+                    st.markdown(
+                        f'<div class="news-card">'
+                        f'<div class="news-source">{publisher}</div>'
+                        f'<div class="news-title">{title}</div>'
+                        f'<div class="news-desc">{str(summary)[:300]}...</div>'
+                        f'<div class="news-date">📅 {published_date}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                    
+                    if link:
+                        st.markdown(f"[🔗 Read Full Article]({link})")
+                    
+                    st.markdown("")  # Spacing
+
+            # Debug: Show raw data if no news displayed
+            if not any(item.get("title") or item.get("headline") for item in news):
+                st.info("📋 Raw news data available. Sample:")
+                st.json(news[0] if news else {})
 
     except Exception as e:
         st.error(f"❌ Error fetching news: {str(e)}")
+        st.info("Try searching for a different stock")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
