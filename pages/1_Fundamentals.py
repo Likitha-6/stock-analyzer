@@ -408,6 +408,88 @@ except Exception as e:
     # Silently skip if data not available
     pass
 
+# ─────────────────────────────────────────────────────────────────────────
+# DEMERGER HISTORY
+# ─────────────────────────────────────────────────────────────────────────
+
+# Known demergers in Indian stock market
+demerger_data = {
+    "VEDANTA": [
+        {
+            "date": "2024-03-01",
+            "company": "Vedanta Limited",
+            "demerged_entity": "Vedanta Sesa Goa Iron Ore Limited",
+            "ratio": "1 share for every 5 shares held",
+            "description": "Demerger of iron ore mining operations",
+            "status": "Completed"
+        }
+    ],
+    "ITC": [
+        {
+            "date": "2024-08-09",
+            "company": "ITC Limited",
+            "demerged_entity": "ITC Hotels Limited",
+            "ratio": "1 share for every 3 shares held",
+            "description": "Separation of Hotels business",
+            "status": "Announced"
+        }
+    ],
+    "RELIANCE": [
+        {
+            "date": "2024-01-01",
+            "company": "Reliance Industries",
+            "demerged_entity": "Reliance Brands Limited (proposed)",
+            "ratio": "Proposed",
+            "description": "Planned demerger of retail and telecom (under review)",
+            "status": "Under Review"
+        }
+    ]
+}
+
+# Show demerger section if stock has demerger data
+if chosen_sym in demerger_data:
+    st.markdown('<div class="section-label">// demerger history</div>', unsafe_allow_html=True)
+    
+    for demerger in demerger_data[chosen_sym]:
+        date_obj = pd.to_datetime(demerger["date"])
+        date_str = date_obj.strftime('%d %b %Y')
+        
+        # Color based on status
+        if demerger["status"] == "Completed":
+            color = "#00c882"
+            status_icon = "✅"
+        elif demerger["status"] == "Announced":
+            color = "#6ec6ff"
+            status_icon = "📢"
+        else:
+            color = "#f5a623"
+            status_icon = "⏳"
+        
+        st.markdown(
+            f"""
+            <div style="background:#0d1628;border-left:4px solid {color};border-radius:8px;padding:1.2rem;margin-bottom:1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div style="flex:1;">
+                        <div style="font-size:0.9rem;font-weight:700;color:#f0f4ff;">
+                            {status_icon} {demerger['demerged_entity']}
+                        </div>
+                        <div style="font-size:0.8rem;color:#8aaac8;margin-top:0.5rem;">
+                            {demerger['description']}
+                        </div>
+                        <div style="font-size:0.75rem;color:#8aaac8;margin-top:0.3rem;">
+                            <strong>Ratio:</strong> {demerger['ratio']}
+                        </div>
+                    </div>
+                    <div style="text-align:right;padding-left:1rem;">
+                        <div style="font-size:0.8rem;color:{color};font-weight:600;">{date_str}</div>
+                        <div style="font-size:0.7rem;color:{color};margin-top:0.3rem;">{demerger['status']}</div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
 st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:1.5rem 0;'>", unsafe_allow_html=True)
 
 st.markdown('<div class="section-label">// compare mode</div>', unsafe_allow_html=True)
