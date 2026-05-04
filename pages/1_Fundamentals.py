@@ -252,11 +252,11 @@ with left_col:
     )
     desc = get_stock_description(chosen_sym)
     if desc and desc != "N/A":
-        short = desc[:180] + "..." if len(desc) > 180 else desc
-        st.markdown(
-            '<div style="font-size:0.78rem !important;color:#8aaac8;margin-top:0.8rem;line-height:1.5;">' + short + '</div>',
-            unsafe_allow_html=True
-        )
+        with st.expander("📄 Company Description", expanded=False):
+            st.markdown(
+                f'<div style="font-size:0.85rem !important;color:#c0d4e8;line-height:1.7;">{desc}</div>',
+                unsafe_allow_html=True
+            )
 
 with right_col:
     price_str = ("Rs." + str(round(price, 2))) if price else "N/A"
