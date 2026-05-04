@@ -318,7 +318,7 @@ st.markdown(
 
 # ── Add to Comparison Feature ────────────────────────────────────────────────────
 st.markdown('<div class="section-label">// compare mode</div>', unsafe_allow_html=True)
-
+ 
 # Show current comparison status and controls
 if st.session_state.get("comparison_stocks"):
     comp_status = st.columns([3, 1])
@@ -329,51 +329,107 @@ if st.session_state.get("comparison_stocks"):
             st.session_state.comparison_stocks = []
             st.rerun()
 else:
-    st.info("👇 **Add stocks below to start comparing**")
-
-# Search and add stocks section
-st.markdown('**Add stock to compare:**')
-
-add_col1, add_col2 = st.columns([4, 1])
-
-with add_col1:
-    add_to_comp = st.text_input(
-        "Search",
-        placeholder="Type symbol (TCS, INFY, WIPRO) or company name...",
-        key="add_compare_stock",
-        label_visibility="collapsed"
-    ).strip().upper()
-    
-    compare_sym = None
-    if add_to_comp:
-        mask = (
-            name_df["Symbol"].str.contains(add_to_comp, case=False, na=False) |
-            name_df["Company Name"].str.contains(add_to_comp, case=False, na=False)
-        )
-        matches = name_df[mask]
-        if not matches.empty:
-            opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
-            selected = st.selectbox(
-                "Select",
-                opts.tolist(),
-                label_visibility="collapsed",
-                key="select_compare"
-            )
-            if selected:
-                compare_sym = selected.split(" – ")[0]
+    st.info("👇 **Add competitor stocks below to start comparing**")
+ 
+# Get current stock's industry and sector for peer suggestions
+current_industry = master_df.loc[master_df["Symbol"] == chosen_sym, "Industry"].iat[0] if chosen_sym in master_df["Symbol"].values else None
+current_sector = master_df.loc[master_df["Symbol"] == chosen_sym, "Big Sectors"].iat[0] if chosen_sym in master_df["Symbol"].values else None
+ 
+# Create tabs for different ways to add competitors
+tab1, tab2 = st.tabs(["🏭 Industry Peers", "🔍 Manual Search"])
+ 
+with tab1:
+    if current_industry:
+        st.markdown(f"**Industry:** {current_industry}")
+        st.markdown(f"**Sector:** {current_sector}")
+        
+        # Get all companies in the same industry
+        industry_peers = master_df[
+            (master_df["Industry"] == current_industry) & 
+            (master_df["Symbol"] != chosen_sym)
+        ].copy()
+        
+        if not industry_peers.empty:
+            st.markdown(f"**Available Competitors ({len(industry_peers)} companies):**")
+            
+            # Sort by market cap (largest first)
+            industry_peers = industry_peers.sort_values('Market Cap', ascending=False, na_position='last')
+            
+            # Create columns for peer selection
+            cols = st.columns(3)
+            for idx, (_, peer) in enumerate(industry_peers.head(9).iterrows()):
+                col = cols[idx % 3]
+                peer_sym = peer["Symbol"]
+                peer_name = peer.get("Company Name", peer_sym)
                 
-                # Auto-add when selected (no button needed)
-                if compare_sym:
-                    if compare_sym == chosen_sym:
-                        st.warning(f"⚠️ {compare_sym} already selected")
-                    elif "comparison_stocks" not in st.session_state:
-                        st.session_state.comparison_stocks = [compare_sym]
-                        st.success(f"✅ Added {compare_sym}")
-                        st.rerun()
-                    elif compare_sym not in st.session_state.comparison_stocks:
-                        st.session_state.comparison_stocks.append(compare_sym)
-                        st.success(f"✅ Added {compare_sym}")
-                        st.rerun()
+                # Display peer card with button
+                with col:
+                    if st.button(
+                        f"📌 {peer_sym}\n{peer_name[:20]}",
+                        key=f"peer_{peer_sym}",
+                        use_container_width=True,
+                        help=f"Click to add {peer_sym} to comparison"
+                    ):
+                        if peer_sym not in st.session_state.get("comparison_stocks", []):
+                            if "comparison_stocks" not in st.session_state:
+                                st.session_state.comparison_stocks = [peer_sym]
+                            else:
+                                st.session_state.comparison_stocks.append(peer_sym)
+                            st.success(f"✅ Added {peer_sym}")
+                            st.rerun()
+                        else:
+                            st.warning(f"⚠️ {peer_sym} already in comparison")
+        else:
+            st.info("ℹ️ No other companies in this industry")
+    else:
+        st.warning("⚠️ Industry information not available")
+ 
+with tab2:
+    st.markdown("**Search for any stock to compare:**")
+    
+    search_col1, search_col2 = st.columns([4, 1])
+    
+    with search_col1:
+        add_to_comp = st.text_input(
+            "Search",
+            placeholder="Type symbol (TCS, INFY, WIPRO) or company name...",
+            key="add_compare_stock",
+            label_visibility="collapsed"
+        ).strip().upper()
+        
+        compare_sym = None
+        if add_to_comp:
+            mask = (
+                name_df["Symbol"].str.contains(add_to_comp, case=False, na=False) |
+                name_df["Company Name"].str.contains(add_to_comp, case=False, na=False)
+            )
+            matches = name_df[mask]
+            if not matches.empty:
+                opts = matches.apply(lambda r: r["Symbol"] + " – " + r["Company Name"], axis=1)
+                selected = st.selectbox(
+                    "Select",
+                    opts.tolist(),
+                    label_visibility="collapsed",
+                    key="select_compare"
+                )
+                if selected:
+                    compare_sym = selected.split(" – ")[0]
+                    
+                    # Auto-add when selected
+                    if compare_sym:
+                        if compare_sym == chosen_sym:
+                            st.warning(f"⚠️ {compare_sym} already selected")
+                        elif "comparison_stocks" not in st.session_state:
+                            st.session_state.comparison_stocks = [compare_sym]
+                            st.success(f"✅ Added {compare_sym}")
+                            st.rerun()
+                        elif compare_sym not in st.session_state.comparison_stocks:
+                            st.session_state.comparison_stocks.append(compare_sym)
+                            st.success(f"✅ Added {compare_sym}")
+                            st.rerun()
+            elif add_to_comp:
+                st.info(f"ℹ️ No stocks found matching '{add_to_comp}'")
+    
 
 with add_col2:
     st.write("")  # Empty space to align with search box
