@@ -317,6 +317,99 @@ st.markdown(
 )
 
 # ── Add to Comparison Feature ────────────────────────────────────────────────────
+st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:2rem 0 1rem;'>", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────
+# STOCK ACTIONS (SPLITS & DEMERGERS)
+# ─────────────────────────────────────────────────────────────────────────
+
+try:
+    ticker_obj = yf.Ticker(f"{chosen_sym}.NS")
+    
+    # Get stock actions (splits, dividends, etc.)
+    actions = ticker_obj.actions
+    
+    if actions is not None and not actions.empty:
+        # Filter splits (Stock Splits have value in 'Stock Splits' column)
+        splits = actions[actions['Stock Splits'] != 0] if 'Stock Splits' in actions.columns else pd.DataFrame()
+        dividends = actions[actions['Dividends'] != 0] if 'Dividends' in actions.columns else pd.DataFrame()
+        
+        if not splits.empty or not dividends.empty:
+            st.markdown('<div class="section-label">// corporate actions</div>', unsafe_allow_html=True)
+            
+            tab1, tab2 = st.tabs(["📊 Stock Splits", "💰 Dividends"])
+            
+            with tab1:
+                if not splits.empty:
+                    st.markdown(f"**Stock Splits ({len(splits)} total):**")
+                    
+                    # Sort by date (most recent first)
+                    splits_sorted = splits.sort_index(ascending=False)
+                    
+                    for date, row in splits_sorted.iterrows():
+                        split_ratio = row['Stock Splits']
+                        # Format: 2:1 means 1 share became 2 shares
+                        if split_ratio > 1:
+                            display_ratio = f"1:{split_ratio:.0f}"
+                            action_type = "Split (Bonus)"
+                        else:
+                            display_ratio = f"{1/split_ratio:.0f}:1"
+                            action_type = "Split (Consolidation)"
+                        
+                        st.markdown(
+                            f"""
+                            <div style="background:#0d1628;border-left:3px solid #00c882;border-radius:6px;padding:1rem;margin-bottom:0.5rem;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <div>
+                                        <div style="font-size:0.9rem;font-weight:700;color:#f0f4ff;">{display_ratio}</div>
+                                        <div style="font-size:0.75rem;color:#8aaac8;margin-top:0.2rem;">{action_type}</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:0.8rem;color:#00c882;font-weight:600;">{date.strftime('%d %b %Y')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("ℹ️ No stock splits recorded")
+            
+            with tab2:
+                if not dividends.empty:
+                    st.markdown(f"**Dividend History (Last 10):**")
+                    
+                    # Sort by date (most recent first) and limit to 10
+                    dividends_sorted = dividends.sort_index(ascending=False).head(10)
+                    
+                    for date, row in dividends_sorted.iterrows():
+                        dividend = row['Dividends']
+                        
+                        st.markdown(
+                            f"""
+                            <div style="background:#0d1628;border-left:3px solid #6ec6ff;border-radius:6px;padding:1rem;margin-bottom:0.5rem;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <div>
+                                        <div style="font-size:0.9rem;font-weight:700;color:#f0f4ff;">Rs. {dividend:.2f}</div>
+                                        <div style="font-size:0.75rem;color:#8aaac8;margin-top:0.2rem;">Dividend per share</div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:0.8rem;color:#6ec6ff;font-weight:600;">{date.strftime('%d %b %Y')}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("ℹ️ No dividend history available")
+    
+except Exception as e:
+    # Silently skip if data not available
+    pass
+
+st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.06);margin:1.5rem 0;'>", unsafe_allow_html=True)
+
 st.markdown('<div class="section-label">// compare mode</div>', unsafe_allow_html=True)
 
 # Show current comparison status and controls
