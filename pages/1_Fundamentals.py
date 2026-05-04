@@ -353,7 +353,7 @@ with tab1:
             st.markdown(f"**Available Competitors ({len(industry_peers)} companies):**")
             
             # Sort by market cap (largest first)
-            industry_peers = industry_peers.sort_values('Market Cap', ascending=False, na_position='last')
+            industry_peers = industry_peers.sort_values('MarketCap', ascending=False, na_position='last')
             
             # Create columns for peer selection
             cols = st.columns(3)
