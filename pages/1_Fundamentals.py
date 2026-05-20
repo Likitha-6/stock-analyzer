@@ -1015,7 +1015,7 @@ if not st.session_state.get("comparison_stocks"):
             return "Rs." + str(round(raw, 2)), str(round(raw, 2))
     
     # Default case
-    return str(round(raw, 2)), str(round(raw, 2))
+        return str(round(raw, 2)), str(round(raw, 2))
 
     def _avg_val(metric, avg):
         if avg is None or (isinstance(avg, float) and np.isnan(avg)):
