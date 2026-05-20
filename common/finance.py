@@ -22,6 +22,13 @@ def _fetch_core_metrics(symbol: str) -> dict:
         
         row = stock.iloc[0]
         
+        # Get price from database
+        price = None
+        try:
+            price = float(row.get("Price"))
+        except:
+            price = None
+        
         return {
             "PE Ratio": row.get("PE Ratio"),
             "EPS": row.get("EPS"),
@@ -33,7 +40,7 @@ def _fetch_core_metrics(symbol: str) -> dict:
             "_company": row.get("CompanyName"),
             "_sector": row.get("Big_Sectors"),
             "_market_cap": row.get("MarketCap"),
-            "_price": None,
+            "_price": price,
         }
     except Exception as e:
         return {}
