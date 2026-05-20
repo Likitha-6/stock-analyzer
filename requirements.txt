@@ -10,6 +10,7 @@ plotly
 ta
 streamlit-lightweight-charts
 nsetools
+nse-india
 feedparser
 transformers
 torch
