@@ -994,28 +994,49 @@ if not st.session_state.get("comparison_stocks"):
     ]
 
     def _display_val(metric, raw):
-    # CHECK FOR NULL FIRST!
-        if raw is None or (isinstance(raw, float) and np.isnan(raw)):
+        # Handle None and NaN values
+        if raw is None:
             return "N/A", "N/A"
         
-        # Then process based on metric type
-        if metric == "Debt to Equity":
-            v = raw / 100
-            return str(round(v, 2)) + "x", str(round(v, 2)) + "x"
-        if metric in ("Profit Margin", "ROE"):
-            v = raw * 100
-            return str(round(v, 1)) + "%", str(round(v, 1)) + "%"
-        if metric == "Free Cash Flow":
-            v = raw / 1e7
-            return "Rs." + str(round(v, 0)) + " Cr", str(round(v, 0))
-        if metric == "Dividend Yield":
-            v = raw * 100 if raw < 1 else raw
-            return str(round(v, 2)) + "%", str(round(v, 2)) + "%"
-        if metric == "EPS":
-            return "Rs." + str(round(raw, 2)), str(round(raw, 2))
-    
-    # Default case
-        return str(round(raw, 2)), str(round(raw, 2))
+        # Handle pandas Series - convert to scalar
+        try:
+            if hasattr(raw, 'iloc'):  # pandas Series
+                raw = raw.iloc[0] if len(raw) > 0 else None
+            if isinstance(raw, (pd.Series, np.ndarray)):
+                raw = float(raw) if len(raw) > 0 else None
+        except:
+            pass
+        
+        # Check again after conversion
+        if raw is None or (isinstance(raw, float) and (np.isnan(raw) or np.isinf(raw))):
+            return "N/A", "N/A"
+        
+        # Try to convert to float if it's a string
+        if isinstance(raw, str):
+            try:
+                raw = float(raw)
+            except (ValueError, TypeError):
+                return "N/A", "N/A"
+        
+        # Process metrics
+        try:
+            if metric == "Debt to Equity":
+                v = float(raw) / 100
+                return str(round(v, 2)) + "x", str(round(v, 2)) + "x"
+            if metric in ("Profit Margin", "ROE"):
+                v = float(raw) * 100
+                return str(round(v, 1)) + "%", str(round(v, 1)) + "%"
+            if metric == "Free Cash Flow":
+                v = float(raw) / 1e7
+                return "Rs." + str(round(v, 0)) + " Cr", str(round(v, 0))
+            if metric == "Dividend Yield":
+                v = float(raw) * 100 if float(raw) < 1 else float(raw)
+                return str(round(v, 2)) + "%", str(round(v, 2)) + "%"
+            if metric == "EPS":
+                return "Rs." + str(round(float(raw), 2)), str(round(float(raw), 2))
+            return str(round(float(raw), 2)), str(round(float(raw), 2))
+        except (ValueError, TypeError, ZeroDivisionError):
+            return "N/A", "N/A"
 
     def _avg_val(metric, avg):
         if avg is None or (isinstance(avg, float) and np.isnan(avg)):
