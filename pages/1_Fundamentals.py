@@ -994,23 +994,28 @@ if not st.session_state.get("comparison_stocks"):
     ]
 
     def _display_val(metric, raw):
-        if raw is None or (isinstance(raw, float) and np.isnan(raw)):
-            return "N/A", "N/A"
-        if metric == "Debt to Equity":
-            v = raw / 100
-            return str(round(v, 2)) + "x", str(round(v, 2)) + "x"
-        if metric in ("Profit Margin", "ROE"):
-            v = raw * 100
-            return str(round(v, 1)) + "%", str(round(v, 1)) + "%"
-        if metric == "Free Cash Flow":
-            v = raw / 1e7
-            return "Rs." + str(round(v, 0)) + " Cr", str(round(v, 0))
-        if metric == "Dividend Yield":
-            v = raw * 100 if raw < 1 else raw
-            return str(round(v, 2)) + "%", str(round(v, 2)) + "%"
-        if metric == "EPS":
-            return "Rs." + str(round(raw, 2)), str(round(raw, 2))
-        return str(round(raw, 2)), str(round(raw, 2))
+    # CHECK FOR NULL FIRST!
+    if raw is None or (isinstance(raw, float) and np.isnan(raw)):
+        return "N/A", "N/A"
+    
+    # Then process based on metric type
+    if metric == "Debt to Equity":
+        v = raw / 100
+        return str(round(v, 2)) + "x", str(round(v, 2)) + "x"
+    if metric in ("Profit Margin", "ROE"):
+        v = raw * 100
+        return str(round(v, 1)) + "%", str(round(v, 1)) + "%"
+    if metric == "Free Cash Flow":
+        v = raw / 1e7
+        return "Rs." + str(round(v, 0)) + " Cr", str(round(v, 0))
+    if metric == "Dividend Yield":
+        v = raw * 100 if raw < 1 else raw
+        return str(round(v, 2)) + "%", str(round(v, 2)) + "%"
+    if metric == "EPS":
+        return "Rs." + str(round(raw, 2)), str(round(raw, 2))
+    
+    # Default case
+    return str(round(raw, 2)), str(round(raw, 2))
 
     def _avg_val(metric, avg):
         if avg is None or (isinstance(avg, float) and np.isnan(avg)):
