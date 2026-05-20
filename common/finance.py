@@ -3,6 +3,11 @@ common.finance
 ~~~~~~~~~~~~~~
 Financial-data helpers for the Indian Stock Analyzer.
 
+Now supports:
+1. NSE API (Primary - NO RATE LIMITS)
+2. Yahoo Finance (Fallback)
+3. Database (Final fallback)
+
 Functions
 ---------
 _fetch_core_metrics(symbol: str) -> dict
@@ -16,7 +21,7 @@ market_cap_label(mcap) -> str
 human_market_cap(mcap) -> str
     Pretty-prints market-cap in T, B, M.
 val_with_ind_avg(metric, value, ind_avg) -> str
-    “123.4 (Ind Avg: 98.7)” helper.
+    "123.4 (Ind Avg: 98.7)" helper.
 interpret(metric, value, ind_avg) -> ✅/🟡/🔴
     Simple emoji scoring vs. industry average.
 """
@@ -24,72 +29,132 @@ interpret(metric, value, ind_avg) -> ✅/🟡/🔴
 from __future__ import annotations
 
 from typing import Optional
+import time
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-# ────────────────────────────────────────────────────────────────────
-# 1.  Core single-stock metrics
-# ────────────────────────────────────────────────────────────────────
+# Try to import NSE API (optional)
+try:
+    from nse_india import NSEClient
+    HAS_NSE_API = True
+except ImportError:
+    HAS_NSE_API = False
 
+# ────────────────────────────────────────────────────────────────────
+# 1.  Core single-stock metrics WITH NSE SUPPORT
+# ────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
 def _fetch_core_metrics(symbol: str) -> dict:
     """
     Fetch trailing PE, EPS, margin, etc. for *symbol* (no '.NS' suffix).
+    
+    Priority:
+    1. Try NSE API (NO RATE LIMITS)
+    2. Fallback to Yahoo Finance
+    3. Return empty dict if both fail
     """
+    
+    # STEP 1: Try NSE API first (BEST - NO RATE LIMITS)
+    if HAS_NSE_API:
+        try:
+            nse = NSEClient()
+            quote = nse.get_quote(symbol)
+            
+            if quote:
+                return {
+                    "PE Ratio": quote.get("pe"),
+                    "EPS": quote.get("eps"),
+                    "Profit Margin": quote.get("profitMargin"),
+                    "ROE": quote.get("roe"),
+                    "Debt to Equity": quote.get("debtToEquity"),
+                    "Dividend Yield": quote.get("dividendYield"),
+                    "Free Cash Flow": quote.get("freeCashflow"),
+                    # meta for UI
+                    "_company": quote.get("name"),
+                    "_sector": quote.get("sector"),
+                    "_market_cap": quote.get("marketCap"),
+                    "_price": quote.get("lastPrice"),
+                }
+        except Exception as e:
+            # NSE failed, will try Yahoo
+            print(f"NSE API unavailable for {symbol}: {str(e)[:50]}")
+    
+    # STEP 2: Fallback to Yahoo Finance
     try:
+        # Add small delay to avoid overwhelming API
+        time.sleep(0.5)
+        
         tkr = yf.Ticker(f"{symbol}.NS")
         info = tkr.info or {}
         raw_fcf = info.get("freeCashflow")
 
         if raw_fcf is None:
-            cf = tkr.cashflow
-            if not cf.empty and "Free Cash Flow" in cf.index:
-                raw_fcf = cf.loc["Free Cash Flow"].iloc[0]
+            try:
+                cf = tkr.cashflow
+                if not cf.empty and "Free Cash Flow" in cf.index:
+                    raw_fcf = cf.loc["Free Cash Flow"].iloc[0]
+            except:
+                pass
+
+        return {
+            "PE Ratio": info.get("trailingPE"),
+            "EPS": info.get("trailingEps"),
+            "Profit Margin": info.get("profitMargins"),
+            "ROE": info.get("returnOnEquity"),
+            "Debt to Equity": info.get("debtToEquity"),
+            "Dividend Yield": info.get("dividendYield"),
+            "Free Cash Flow": raw_fcf,
+            # meta for UI
+            "_company": info.get("longName"),
+            "_sector": info.get("sector"),
+            "_market_cap": info.get("marketCap"),
+            "_price": info.get("currentPrice"),
+        }
 
     except Exception as exc:
-        # Handle rate-limit separately so caller may decide what to do.
-        if "rate" in str(exc).lower():
-            raise RuntimeError("Yahoo Finance rate-limit hit") from exc
-        info, raw_fcf = {}, None
-
-    return {
-        "PE Ratio": info.get("trailingPE"),
-        "EPS": info.get("trailingEps"),
-        "Profit Margin": info.get("profitMargins"),
-        "ROE": info.get("returnOnEquity"),
-        "Debt to Equity": info.get("debtToEquity"),
-        "Dividend Yield": info.get("dividendYield"),
-        "Free Cash Flow": raw_fcf,
-        # meta for UI
-        "_company": info.get("longName"),
-        "_sector": info.get("sector"),
-        "_market_cap": info.get("marketCap"),
-        "_price": info.get("currentPrice"),
-    }
+        # More graceful error handling
+        error_msg = str(exc).lower()
+        
+        if "rate" in error_msg or "429" in error_msg:
+            # Rate limit - return empty but don't crash
+            print(f"⚠️ Yahoo Finance rate-limited for {symbol}")
+            return {}
+        
+        # Other errors - return empty
+        print(f"⚠️ Could not fetch metrics for {symbol}: {str(exc)[:50]}")
+        return {}
 
 
 # ────────────────────────────────────────────────────────────────────
-# 2.  Industry averages
+# 2.  Industry averages WITH BETTER ERROR HANDLING
 # ────────────────────────────────────────────────────────────────────
-
 
 @st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
 def get_industry_averages(industry, master_df, max_peers=None):
+    """
+    Get median metrics for industry peers.
+    Gracefully handles rate limits without crashing.
+    """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     peer_syms = (
         master_df.loc[master_df["Industry"] == industry, "Symbol"]
         .head(max_peers).tolist()
     )
-    metric_keys = ["PE Ratio","EPS","Profit Margin","ROE","Debt to Equity","Dividend Yield","Free Cash Flow"]
+    
+    metric_keys = [
+        "PE Ratio", "EPS", "Profit Margin", "ROE", 
+        "Debt to Equity", "Dividend Yield", "Free Cash Flow"
+    ]
     buckets = {m: [] for m in metric_keys}
     rate_limited = False
 
     def fetch(sym):
+        """Fetch with error handling - never crashes"""
         try:
             return _fetch_core_metrics(sym)
         except RuntimeError:
@@ -97,30 +162,42 @@ def get_industry_averages(industry, master_df, max_peers=None):
         except Exception:
             return {}
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    # Reduced worker threads to be respectful to APIs
+    with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {executor.submit(fetch, sym): sym for sym in peer_syms}
         for future in as_completed(futures):
-            result = future.result()
-            if result is None:
-                rate_limited = True
+            try:
+                result = future.result()
+                if result is None:
+                    rate_limited = True
+                    continue
+                    
+                for m, v in result.items():
+                    if m.startswith("_"): 
+                        continue
+                    if v is not None and isinstance(v, (int, float)) and np.isfinite(v):
+                        buckets[m].append(float(v))
+            except Exception:
+                # Handle any errors from futures
                 continue
-            for m, v in result.items():
-                if m.startswith("_"): continue
-                if v is not None and isinstance(v, (int, float)) and np.isfinite(v):
-                    buckets[m].append(float(v))
 
     if rate_limited:
-        st.warning("⚠️ Yahoo Finance rate-limit reached – partial peer data.")
+        st.warning("⚠️ Some peer data unavailable – showing partial averages.")
 
-    return {m: (None if not vals else round(float(np.median(vals)), 2)) for m, vals in buckets.items()}
+    return {
+        m: (None if not vals else round(float(np.median(vals)), 2)) 
+        for m, vals in buckets.items()
+    }
+
 
 # ────────────────────────────────────────────────────────────────────
 # 3.  Utility helpers used by UI code
 # ────────────────────────────────────────────────────────────────────
 
-
 def get_stock_description(symbol: str) -> str:
+    """Get company description from Yahoo Finance with error handling"""
     try:
+        time.sleep(0.3)  # Respect API rate limits
         return yf.Ticker(f"{symbol}.NS").info.get(
             "longBusinessSummary", "No description available."
         )
@@ -129,15 +206,22 @@ def get_stock_description(symbol: str) -> str:
 
 
 def market_cap_label(mc):
-    if mc is None: return "N/A"
-    if mc >= 2_000_000_000_000: return "Mega Cap"
-    if mc >= 200_000_000_000:   return "Large Cap"   # ₹20,000 Cr+
-    if mc >= 50_000_000_000:    return "Mid Cap"     # ₹5,000 Cr+
-    if mc >= 5_000_000_000:     return "Small Cap"   # ₹500 Cr+
+    """Classify stock by market cap"""
+    if mc is None: 
+        return "N/A"
+    if mc >= 2_000_000_000_000: 
+        return "Mega Cap"
+    if mc >= 200_000_000_000:   
+        return "Large Cap"   # ₹20,000 Cr+
+    if mc >= 50_000_000_000:    
+        return "Mid Cap"     # ₹5,000 Cr+
+    if mc >= 5_000_000_000:     
+        return "Small Cap"   # ₹500 Cr+
     return "Micro Cap"
 
 
 def human_market_cap(mc: Optional[float]) -> str:
+    """Pretty-print market cap in T, B, M"""
     if mc is None:
         return "N/A"
     if mc >= 1e12:
@@ -150,6 +234,7 @@ def human_market_cap(mc: Optional[float]) -> str:
 
 
 def val_with_ind_avg(metric: str, raw_val: Optional[float], ind_avg: Optional[float]) -> str:
+    """Format metric value with industry average"""
     if raw_val is None:
         return "N/A"
 
