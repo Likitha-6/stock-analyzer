@@ -3,19 +3,20 @@ common.finance
 ~~~~~~~~~~~~~~
 Financial-data helpers for the Indian Stock Analyzer.
 
-Now supports:
-1. NSE API (Primary - NO RATE LIMITS)
-2. Yahoo Finance (Fallback)
-3. Database (Final fallback)
+NOW: Database-only approach (no external APIs)
+- Yahoo Finance is blocked
+- No rate limits
+- Super fast and reliable
+- Uses nse.db local database
 
 Functions
 ---------
 _fetch_core_metrics(symbol: str) -> dict
-    Grab key ratios + meta-data for a single NSE ticker.
+    Fetch metrics from local database (nse.db)
 get_industry_averages(industry, master_df, max_peers=None) -> dict
     Mean of each metric across peers in the same industry.
 get_stock_description(symbol) -> str
-    Long business summary from Yahoo Finance.
+    Get company description from database.
 market_cap_label(mcap) -> str
     Mega / Large / Mid / Small / Micro or N/A.
 human_market_cap(mcap) -> str
@@ -29,118 +30,66 @@ interpret(metric, value, ind_avg) -> ✅/🟡/🔴
 from __future__ import annotations
 
 from typing import Optional
-import time
 
 import numpy as np
 import pandas as pd
 import streamlit as st
-import yfinance as yf
-
-# Try to import NSE API (optional)
-try:
-    from nse_india import NSEClient
-    HAS_NSE_API = True
-except ImportError:
-    HAS_NSE_API = False
 
 # ────────────────────────────────────────────────────────────────────
-# 1.  Core single-stock metrics WITH NSE SUPPORT
+# 1.  Core single-stock metrics FROM DATABASE
 # ────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
 def _fetch_core_metrics(symbol: str) -> dict:
     """
-    Fetch trailing PE, EPS, margin, etc. for *symbol* (no '.NS' suffix).
+    Fetch metrics from LOCAL DATABASE (nse.db)
+    NO external API calls - super fast and reliable!
     
-    Priority:
-    1. Try NSE API (NO RATE LIMITS)
-    2. Fallback to Yahoo Finance
-    3. Return empty dict if both fail
+    Returns all metrics from database or empty dict if not found.
     """
-    
-    # STEP 1: Try NSE API first (BEST - NO RATE LIMITS)
-    if HAS_NSE_API:
-        try:
-            nse = NSEClient()
-            quote = nse.get_quote(symbol)
-            
-            if quote:
-                return {
-                    "PE Ratio": quote.get("pe"),
-                    "EPS": quote.get("eps"),
-                    "Profit Margin": quote.get("profitMargin"),
-                    "ROE": quote.get("roe"),
-                    "Debt to Equity": quote.get("debtToEquity"),
-                    "Dividend Yield": quote.get("dividendYield"),
-                    "Free Cash Flow": quote.get("freeCashflow"),
-                    # meta for UI
-                    "_company": quote.get("name"),
-                    "_sector": quote.get("sector"),
-                    "_market_cap": quote.get("marketCap"),
-                    "_price": quote.get("lastPrice"),
-                }
-        except Exception as e:
-            # NSE failed, will try Yahoo
-            print(f"NSE API unavailable for {symbol}: {str(e)[:50]}")
-    
-    # STEP 2: Fallback to Yahoo Finance
     try:
-        # Add small delay to avoid overwhelming API
-        time.sleep(0.5)
+        from .sql import load_master
         
-        tkr = yf.Ticker(f"{symbol}.NS")
-        info = tkr.info or {}
-        raw_fcf = info.get("freeCashflow")
-
-        if raw_fcf is None:
-            try:
-                cf = tkr.cashflow
-                if not cf.empty and "Free Cash Flow" in cf.index:
-                    raw_fcf = cf.loc["Free Cash Flow"].iloc[0]
-            except:
-                pass
-
-        return {
-            "PE Ratio": info.get("trailingPE"),
-            "EPS": info.get("trailingEps"),
-            "Profit Margin": info.get("profitMargins"),
-            "ROE": info.get("returnOnEquity"),
-            "Debt to Equity": info.get("debtToEquity"),
-            "Dividend Yield": info.get("dividendYield"),
-            "Free Cash Flow": raw_fcf,
-            # meta for UI
-            "_company": info.get("longName"),
-            "_sector": info.get("sector"),
-            "_market_cap": info.get("marketCap"),
-            "_price": info.get("currentPrice"),
-        }
-
-    except Exception as exc:
-        # More graceful error handling
-        error_msg = str(exc).lower()
+        master_df = load_master()
+        stock = master_df[master_df["Symbol"] == symbol]
         
-        if "rate" in error_msg or "429" in error_msg:
-            # Rate limit - return empty but don't crash
-            print(f"⚠️ Yahoo Finance rate-limited for {symbol}")
+        if stock.empty:
+            print(f"Stock {symbol} not found in database")
             return {}
         
-        # Other errors - return empty
-        print(f"⚠️ Could not fetch metrics for {symbol}: {str(exc)[:50]}")
+        row = stock.iloc[0]
+        
+        return {
+            "PE Ratio": row.get("PE Ratio"),
+            "EPS": row.get("EPS"),
+            "Profit Margin": row.get("ProfitMargin"),
+            "ROE": row.get("ROE"),
+            "Debt to Equity": row.get("DebtToEquity"),
+            "Dividend Yield": None,  # Not in standard database
+            "Free Cash Flow": None,  # Not in standard database
+            # meta for UI
+            "_company": row.get("CompanyName"),
+            "_sector": row.get("Big Sectors"),
+            "_market_cap": row.get("MarketCap"),
+            "_price": None,  # Real-time price not available from database
+        }
+    
+    except Exception as e:
+        print(f"Error fetching metrics for {symbol}: {str(e)[:50]}")
         return {}
 
 
 # ────────────────────────────────────────────────────────────────────
-# 2.  Industry averages WITH BETTER ERROR HANDLING
+# 2.  Industry averages FROM DATABASE
 # ────────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
 def get_industry_averages(industry, master_df, max_peers=None):
     """
-    Get median metrics for industry peers.
-    Gracefully handles rate limits without crashing.
+    Get median metrics for industry peers from database.
+    No external API calls - all local.
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
+    
     peer_syms = (
         master_df.loc[master_df["Industry"] == industry, "Symbol"]
         .head(max_peers).tolist()
@@ -151,38 +100,21 @@ def get_industry_averages(industry, master_df, max_peers=None):
         "Debt to Equity", "Dividend Yield", "Free Cash Flow"
     ]
     buckets = {m: [] for m in metric_keys}
-    rate_limited = False
 
-    def fetch(sym):
-        """Fetch with error handling - never crashes"""
+    # Fetch metrics for all peers from database
+    for sym in peer_syms:
         try:
-            return _fetch_core_metrics(sym)
-        except RuntimeError:
-            return None
-        except Exception:
-            return {}
-
-    # Reduced worker threads to be respectful to APIs
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {executor.submit(fetch, sym): sym for sym in peer_syms}
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                if result is None:
-                    rate_limited = True
-                    continue
-                    
-                for m, v in result.items():
-                    if m.startswith("_"): 
-                        continue
-                    if v is not None and isinstance(v, (int, float)) and np.isfinite(v):
-                        buckets[m].append(float(v))
-            except Exception:
-                # Handle any errors from futures
+            result = _fetch_core_metrics(sym)
+            if not result:
                 continue
-
-    if rate_limited:
-        st.warning("⚠️ Some peer data unavailable – showing partial averages.")
+            
+            for m, v in result.items():
+                if m.startswith("_"): 
+                    continue
+                if v is not None and isinstance(v, (int, float)) and np.isfinite(v):
+                    buckets[m].append(float(v))
+        except Exception:
+            continue
 
     return {
         m: (None if not vals else round(float(np.median(vals)), 2)) 
@@ -195,14 +127,28 @@ def get_industry_averages(industry, master_df, max_peers=None):
 # ────────────────────────────────────────────────────────────────────
 
 def get_stock_description(symbol: str) -> str:
-    """Get company description from Yahoo Finance with error handling"""
+    """
+    Get company description from database.
+    If available, return full description. Otherwise "N/A".
+    """
     try:
-        time.sleep(0.3)  # Respect API rate limits
-        return yf.Ticker(f"{symbol}.NS").info.get(
-            "longBusinessSummary", "No description available."
-        )
-    except Exception:
-        return "Description could not be fetched at this time."
+        from .sql import load_master
+        
+        master_df = load_master()
+        stock = master_df[master_df["Symbol"] == symbol]
+        
+        if stock.empty:
+            return "No description available."
+        
+        desc = stock.iloc[0].get("Description")
+        if desc and desc != "N/A" and desc:
+            return str(desc)
+        
+        return "No description available."
+    
+    except Exception as e:
+        print(f"Error getting description for {symbol}: {str(e)[:50]}")
+        return "Description could not be fetched."
 
 
 def market_cap_label(mc):
